@@ -12,3 +12,17 @@ loadmatlabpatients.py
 
 /eval_meal_est.py
 /roc_results8.pkl
+
+
+
+questions/
+SimulationData/
+SimulationResults/
+
+*.zip
+*.csv
+*.jsonl
+*.txt
+
+sample_output/
+data/

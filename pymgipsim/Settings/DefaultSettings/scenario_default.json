@@ -1,11 +1,11 @@
 {
     "settings": {
-        "save_directory": "C:\\mentes22\\mentes\\IIT\\projects\\py-mgipsim\\SimulationResults",
+        "save_directory": "/home/srini/time_series/py-mgipsim/SimulationResults",
         "start_time": 0,
         "end_time": 1440,
         "random_seed": 402,
         "random_state": {},
-        "sampling_time": 1,
+        "sampling_time": 5,
         "solver_name": "RK4",
         "simulator_name": "SingleScaleSolver"
     },
@@ -88,7 +88,7 @@
     },
     "inputs": null,
     "controller": {
-        "name": "OpenLoop",
+        "name": "HCL0",
         "parameters": []
     },
     "patient": {

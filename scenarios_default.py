@@ -16,7 +16,7 @@ scenario["settings"]["start_time"] = 0
 scenario["settings"]["end_time"] = 1440
 scenario["settings"]['random_seed'] = DEFAULT_RANDOM_SEED
 scenario["settings"]['random_state'] = {}
-scenario["settings"]['sampling_time'] = 1 # minutes
+scenario["settings"]['sampling_time'] = 5 # minutes
 scenario["settings"]["solver_name"] = "RK4"
 scenario["settings"]['simulator_name'] = 'SingleScaleSolver'
 
@@ -77,7 +77,7 @@ scenario["inputs"] = None
 
 """ Create blank controller field """
 scenario["controller"] = {}
-scenario["controller"]['name'] = 'OpenLoop'
+scenario["controller"]['name'] = 'HCL0'
 scenario['controller']['parameters'] = []
 
 """ Create blank patient field """

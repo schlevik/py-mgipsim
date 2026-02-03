@@ -104,6 +104,10 @@ class VanillaMPC:
             basal_out = self.demographic_info.get_basal_rate()  # U/hr
             bolus_out = (opt_insulin - self.demographic_info.get_basal_rate_mU_min()) / 1000 * T
 
+        if current_cgm < 100 or self.pw_data_object.get_dcgm_dt()/self.T < -3:
+            basal_out = 0.0
+            bolus_out = 0.0
+            
         return basal_out, bolus_out
 
     def mpc_set(self):

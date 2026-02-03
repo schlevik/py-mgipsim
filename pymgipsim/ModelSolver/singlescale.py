@@ -9,10 +9,9 @@ from pymgipsim import Controllers
 from pymgipsim.Utilities.units_conversions_constants import UnitConversion
 from pymgipsim.VirtualPatient.Models import T1DM
 from tqdm import tqdm
+import pandas as pd
 
 class SolverBase(ABC):
-
-
     def __init__(self, scenario_instance: scenario, model: BaseModel):
 
         # Directory where the results should be stored
@@ -77,6 +76,8 @@ class SingleScaleSolver(SolverBase):
         self.set_controller(self.scenario_instance.controller.name)
 
         state_results[:, :, 0] = self.model.initial_conditions.as_array
+        
+        
         for sample in tqdm(range(1, inputs.shape[2]), disable = no_progress_bar):
 
             self.controller.run(measurements=state_results[:, self.model.output_state, sample - 1], inputs=inputs, states=state_results, sample=sample-1)
@@ -89,8 +90,15 @@ class SingleScaleSolver(SolverBase):
                 parameters=parameters,
                 inputs=inputs[:, :, sample - 1]
             )
-
+        
         self.model.states.as_array = state_results
         self.model.inputs.as_array = inputs
+        # check if input had 3rd dimension
+        if inputs.shape[1] > 3:
+            # save the inputs in a csv file
+            df = pd.DataFrame(inputs[:,3,:])
+            df.to_csv("insulin_input.csv", index=False)
+        else:
+            pass
 
         return state_results
