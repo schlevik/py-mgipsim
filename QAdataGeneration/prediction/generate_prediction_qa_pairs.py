@@ -144,7 +144,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "question_text": "Given recent habits of having a heavy lunch (160-240) carbs, what is the most likely time of day the patient will experience a glucose spike tomorrow?",
         "answer_generation_rule": "Predict the time index assuming time is between 12AM to 12AM where index goes from 0 to 288 where time is sampled every 5 minutes",
         "answer_instruction": "Predict the time index assuming time is between 12AM to 12AM where index goes from 0 to 288 where time is sampled every 5 minutes",
-        "answer_type": "integer",
+        "answer_type": "int",
         "metric": "MAE",
     },
     12: {
@@ -154,16 +154,16 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_generation_rule": "Make a prediction on what the average glucose value will be for tomorrow and compare it with the average glucose value for today.",
         "answer_instruction": "Make a prediction on what the average glucose value will be for tomorrow and compare it with the average glucose value for today.",
         "answer_type": "string",
-        "metric": "Accuracy",
+        "metric": "accuracy",
     },
     13: {
-        "function_name": "predict_insuling",
+        "function_name": "predict_insulin",
         "question_id": "pm_13",
         "question_text": "Will I need a correction insulin dose in the next 2 hours?",
         "answer_generation_rule": "Predict if a user has to take an insulin dose in the next 2 hours.",
         "answer_instruction": "Predict if a user has to take an insulin dose in the next 2 hours.",
         "answer_type": "string",
-        "metric": "Accuracy",
+        "metric": "accuracy",
     },
     14: {
         "function_name": "predict_blood_glucose_swings",
@@ -172,7 +172,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_generation_rule": "Predict if the blood glucose might go up by more than 60 mg/dL or go down by more than 60 mg/dL in the next 4 hours from the current value.",
         "answer_instruction": "Predict if the blood glucose might go up by more than 60 mg/dL or go down by more than 60 mg/dL in the next 4 hours from the current value.",
         "answer_type": "string",
-        "metric": "Accuracy",
+        "metric": "accuracy",
     },
     15: {
         "function_name": "predict_blood_glucose_swings",
@@ -181,7 +181,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_generation_rule": "Predict if the patient should eat a snack to ensure their glucose stays in range between 12AM-6AM",
         "answer_instruction": "Predict if the patient should eat a snack to ensure their glucose stays in range between 12AM-6AM",
         "answer_type": "string",
-        "metric": "Accuracy",
+        "metric": "accuracy",
     },
     17: {
         "function_name": "predict_increase",
@@ -190,7 +190,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_generation_rule": "Predict if adjacent time periods with the highest glucose change will be during lunch time (9-1PM) or dinner time (6-10PM). Return a string value of 'lunch' or 'dinner' where 'lunch' means that the blood sugar will go up faster during lunch time (9-1PM) and 'dinner' means that the blood sugar will go up faster during dinner time (6-10PM).",
         "answer_instruction": "Predict if adjacent time periods with the highest glucose change will be during lunch time (9-1PM) or dinner time (6-10PM). Return a string value of 'lunch' or 'dinner' where 'lunch' means that the blood sugar will go up faster during lunch time (9-1PM) and 'dinner' means that the blood sugar will go up faster during dinner time (6-10PM).",
         "answer_type": "string",
-        "metric": "Accuracy",
+        "metric": "accuracy",
     },
     18: {
         "function_name": "predict_insulin_consumption",
@@ -199,7 +199,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_generation_rule": "Calculate the average insulin consumption for the first 3 weeks and predict the future average insulin consumption for the next week and compare. Return a string value of 'more' or 'less' where 'more' means that the user will need more insulin than average in this coming week and 'less' means that the user will need less insulin than average in this coming week.",
         "answer_instruction": "Calculate the average insulin consumption for the first 3 weeks and predict the future average insulin consumption for the next week and compare. Return a string value of 'more' or 'less' where 'more' means that the user will need more insulin than average in this coming week and 'less' means that the user will need less insulin than average in this coming week.",
         "answer_type": "string",
-        "metric": "Accuracy",
+        "metric": "accuracy",
     },
     19: {
         "function_name": "predict_glucose_drop",
@@ -220,6 +220,18 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "metric": "MAE",
     },
 }
+
+REQUIRED_METADATA_FIELDS = (
+    "function_name",
+    "question_id",
+    "question_text",
+    "answer_generation_rule",
+    "answer_instruction",
+    "answer_type",
+    "metric",
+)
+ALLOWED_METRICS = {"accuracy", "MAE"}
+ALLOWED_ANSWER_TYPES = {"string", "float", "int"}
 
 
 def convert_np(value):
@@ -916,6 +928,52 @@ QUESTION_BUILDERS: dict[int, Callable[[GenerationContext, int, random.Random], d
     19: question_19,
     20: question_20,
 }
+
+
+def validate_question_metadata():
+    errors = []
+    builder_indices = set(QUESTION_BUILDERS)
+    metadata_indices = set(QUESTION_METADATA)
+
+    missing_metadata = sorted(builder_indices - metadata_indices)
+    if missing_metadata:
+        errors.append(f"Missing metadata for question indices: {missing_metadata}")
+
+    unused_metadata = sorted(metadata_indices - builder_indices)
+    if unused_metadata:
+        errors.append(f"Unused metadata entries for question indices: {unused_metadata}")
+
+    seen_question_ids = {}
+    for question_index in sorted(metadata_indices):
+        metadata = QUESTION_METADATA[question_index]
+        missing_fields = [field for field in REQUIRED_METADATA_FIELDS if not metadata.get(field)]
+        if missing_fields:
+            errors.append(f"Question {question_index} is missing required metadata fields: {missing_fields}")
+            continue
+
+        question_id = metadata["question_id"]
+        if question_id in seen_question_ids:
+            errors.append(
+                f"Duplicate question_id {question_id!r} for questions {seen_question_ids[question_id]} and {question_index}"
+            )
+        else:
+            seen_question_ids[question_id] = question_index
+
+        if metadata["metric"] not in ALLOWED_METRICS:
+            errors.append(
+                f"Question {question_index} has invalid metric {metadata['metric']!r}; allowed: {sorted(ALLOWED_METRICS)}"
+            )
+
+        if metadata["answer_type"] not in ALLOWED_ANSWER_TYPES:
+            errors.append(
+                f"Question {question_index} has invalid answer_type {metadata['answer_type']!r}; allowed: {sorted(ALLOWED_ANSWER_TYPES)}"
+            )
+
+    if errors:
+        raise ValueError("Invalid QUESTION_METADATA:\n- " + "\n- ".join(errors))
+
+
+validate_question_metadata()
 
 
 def build_prompt_text(repo_root: Path, record: dict) -> str:
