@@ -1,0 +1,28 @@
+{
+    "normal_day": {
+        "running_start_time": [
+            "05:00",
+            "07:00"
+        ]
+    },
+    "late_night_snack": {
+        "running_start_time": [
+            "05:00",
+            "07:00"
+        ],
+        "pm_snack_time_range": [
+            1320,
+            1440
+        ]
+    },
+    "overeating_lunch": {
+        "running_start_time": [
+            "05:00",
+            "07:00"
+        ],
+        "lunch_carb_range": [
+            160,
+            240
+        ]
+    }
+}
