@@ -60,6 +60,8 @@ INPUT_GENERATION_ARG_FIELDS = (
     "cycling_duration",
     "cycling_power",
 )
+PREDICTION_BUNDLE_SAMPLING_TIME_MINUTES = 5
+PREDICTION_BUNDLE_NUMBER_OF_DAYS = 30
 
 
 def normalize_path(path_value: str | os.PathLike[str]) -> Path:
@@ -210,6 +212,16 @@ def apply_prediction_input_overrides(scenario_instance, args: argparse.Namespace
         setattr(args, field_name, deepcopy(value))
 
 
+def apply_prediction_time_horizon(scenario_instance, args: argparse.Namespace) -> None:
+    args.sampling_time = PREDICTION_BUNDLE_SAMPLING_TIME_MINUTES
+    args.number_of_days = PREDICTION_BUNDLE_NUMBER_OF_DAYS
+
+    scenario_instance.settings.sampling_time = PREDICTION_BUNDLE_SAMPLING_TIME_MINUTES
+    scenario_instance.settings.end_time = (
+        scenario_instance.settings.start_time + (PREDICTION_BUNDLE_NUMBER_OF_DAYS * 24 * 60)
+    )
+
+
 def transpose_insulin_input(source_csv_path: Path, destination_csv_path: Path, patient_count: int) -> None:
     with source_csv_path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.reader(handle)
@@ -339,6 +351,7 @@ def build_prediction_scenario(
     scenario_instance = deepcopy(base_scenario)
     prediction_args = deepcopy(base_args)
     mirror_saved_scenario_to_args(prediction_args, scenario_instance, patient_count)
+    apply_prediction_time_horizon(scenario_instance, prediction_args)
     apply_prediction_input_overrides(scenario_instance, prediction_args, input_overrides)
     prediction_args.to_excel = True
 
@@ -386,6 +399,7 @@ def build_prediction_source_bundle(
     (bundle_root / "SimulationData").mkdir(parents=True, exist_ok=True)
 
     for scenario_name, bundled_insulin_csv_name in REQUIRED_PREDICTION_SCENARIOS.items():
+        print(f"Building prediction source bundle for scenario: {scenario_name}")
         build_prediction_scenario(
             base_scenario=base_scenario,
             base_args=base_args,
@@ -500,7 +514,7 @@ def main(argv=None):
 
     if args.qa:
         print("Generating anomaly detection question answering dataset...")
-        generate_anomaly_detection_qa(args.data_path)
+        # generate_anomaly_detection_qa(args.data_path)
         print("Building prediction source bundle...")
 
         # if fault is there we dont want to include it in the prediction source bundle and therefore generate a new bundle without faults
