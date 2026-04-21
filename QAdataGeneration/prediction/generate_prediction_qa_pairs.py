@@ -206,6 +206,11 @@ REQUIRED_METADATA_FIELDS = (
 )
 ALLOWED_METRICS = {"accuracy", "MAE"}
 ALLOWED_ANSWER_TYPES = {"string", "float", "int"}
+REQUIRED_PREDICTION_SCENARIOS = {
+    "normal_day": "insulin_input_normal.csv",
+    "late_night_snack": "insulin_input_late_night_snack.csv",
+    "overeating_lunch": "insulin_input_overeating_lunch.csv",
+}
 
 
 def convert_np(value):
@@ -423,10 +428,38 @@ class GenerationContext:
 
 
 def has_prediction_source_bundle(root: Path) -> bool:
-    return (
-        (root / "SimulationData" / "normal_day").exists()
-        and (root / "insulin_input_normal.csv").exists()
-    )
+    try:
+        validate_prediction_source_bundle(root)
+    except FileNotFoundError:
+        return False
+    return True
+
+
+def validate_prediction_source_bundle(bundle_root: Path) -> None:
+    missing_paths = []
+    for scenario_name, insulin_csv in REQUIRED_PREDICTION_SCENARIOS.items():
+        scenario_data = bundle_root / "SimulationData" / scenario_name
+        scenario_results = bundle_root / "SimulationResults" / scenario_name
+        insulin_input = bundle_root / insulin_csv
+
+        if not scenario_data.exists():
+            missing_paths.append(str(scenario_data))
+        if not scenario_results.exists():
+            missing_paths.append(str(scenario_results))
+        if not insulin_input.exists():
+            missing_paths.append(str(insulin_input))
+
+    if missing_paths:
+        formatted_paths = "\n- ".join(missing_paths)
+        raise FileNotFoundError(
+            f"Prediction source bundle is incomplete under {bundle_root}. "
+            f"Expected the following paths to exist:\n- {formatted_paths}"
+        )
+
+
+def available_prediction_patients(bundle_root: Path, scenario_name: str = "normal_day") -> int:
+    scenario_dir = bundle_root / "SimulationData" / scenario_name
+    return sum(1 for path in scenario_dir.glob(f"{scenario_name}_*_simulation_data.jsonl") if path.is_file())
 
 
 def question_0(ctx: GenerationContext, patient_index: int, rng: random.Random):
@@ -991,8 +1024,14 @@ def generate_prediction_qa(data_dir: str, patient_count: int = DEFAULT_PATIENT_C
     output_root = Path(data_dir)
     if not output_root.is_absolute():
         output_root = (project_root / output_root).resolve()
-
-    source_root = output_root if has_prediction_source_bundle(output_root) else project_root
+    source_root = output_root / "PredictionSource"
+    validate_prediction_source_bundle(source_root)
+    available_patients = available_prediction_patients(source_root)
+    if patient_count > available_patients:
+        raise ValueError(
+            f"Prediction source bundle under {source_root} contains {available_patients} patients, "
+            f"but patient_count={patient_count} was requested."
+        )
 
     qa_output_dir = output_root / "QAData"
     qa_output_dir.mkdir(parents=True, exist_ok=True)
