@@ -1,13 +1,9 @@
-#!/usr/bin/env python3
-
 from __future__ import annotations
 
-import argparse
 import csv
 import hashlib
 import json
 import random
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -15,28 +11,6 @@ from typing import Callable
 SAMPLES_PER_DAY = 24 * 12
 DEFAULT_PATIENT_COUNT = 20
 QUESTION_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20]
-PROMPT_FILE_INDEX = {
-    0: 0,
-    1: 1,
-    2: 2,
-    3: 3,
-    4: 4,
-    5: 5,
-    6: 6,
-    7: 7,
-    8: 8,
-    9: 9,
-    10: 10,
-    11: 11,
-    12: 12,
-    13: 13,
-    14: 14,
-    15: 15,
-    17: 16,
-    18: 17,
-    19: 18,
-    20: 19,
-}
 
 QUESTION_METADATA: dict[int, dict[str, str]] = {
     0: {
@@ -248,10 +222,6 @@ def stable_rng(seed: int, question_index: int, patient_index: int) -> random.Ran
     return random.Random(int(digest[:16], 16))
 
 
-def stable_choice(seed: int, question_index: int, patient_count: int) -> int:
-    return stable_rng(seed, question_index, patient_count).randrange(patient_count)
-
-
 def alternate_category(answer, options):
     for option in options:
         if option != answer:
@@ -298,6 +268,7 @@ def build_qa(patient_index: int, question_index: int, answer, example_answer):
         "metric": metadata["metric"],
         "example_answer": example_answer,
         "answer": answer,
+        "explanation": metadata.get("explanation", ""),
     }
 
 
@@ -449,6 +420,13 @@ class GenerationContext:
             with path.open("r", encoding="utf-8") as handle:
                 self.simulation_cache[cache_key] = json.load(handle)
         return self.simulation_cache[cache_key]
+
+
+def has_prediction_source_bundle(root: Path) -> bool:
+    return (
+        (root / "SimulationData" / "normal_day").exists()
+        and (root / "insulin_input_normal.csv").exists()
+    )
 
 
 def question_0(ctx: GenerationContext, patient_index: int, rng: random.Random):
@@ -700,10 +678,10 @@ def question_11(ctx: GenerationContext, patient_index: int, rng: random.Random):
         if change > max_val:
             max_val = change
             max_ind = idx
-    answer = str(max_ind)
-    example = str(int(max_ind - ((rng.randint(1, 50) / 100) * max_ind)))
+    answer = max_ind
+    example = int(max_ind - ((rng.randint(1, 50) / 100) * max_ind))
     if example == answer:
-        example = "0" if answer != "0" else "1"
+        example = 0 if answer != 0 else 1
 
     qa = build_qa(patient_index, 11, answer, example)
     input_context = build_input_context(
@@ -976,156 +954,54 @@ def validate_question_metadata():
 validate_question_metadata()
 
 
-def build_prompt_text(repo_root: Path, record: dict) -> str:
-    sys.path.insert(0, str(repo_root.parent))
-    from loopqa.eval import LoopQAEvaluator
-
-    qa_item = record["qa_pairs"][0]
-    prompt_context = LoopQAEvaluator.format_patient_context(record["input_context"])
-    return LoopQAEvaluator.create_prompt(
-        prompt_context,
-        qa_item["question_text"],
-        qa_item["answer_instruction"],
-        qa_item["answer_type"],
-        example_answer=qa_item["example_answer"],
-    )
+def write_qa_json(all_qa: list[dict], path: Path) -> None:
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(all_qa, handle, indent=2, default=convert_np)
 
 
-def write_prompt(repo_root: Path, prompts_dir: Path, question_index: int, record: dict):
-    prompt_text = build_prompt_text(repo_root, record)
-    prompt_index = PROMPT_FILE_INDEX[question_index]
-    prompts_dir.mkdir(parents=True, exist_ok=True)
-    with (prompts_dir / f"{prompt_index}.txt").open("w", encoding="utf-8") as handle:
-        handle.write(prompt_text)
+def write_jsonl(records: list[dict], path: Path) -> None:
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record, default=convert_np) + "\n")
 
 
-def parse_question_indices(raw_value: str) -> list[int]:
-    if raw_value.lower() == "all":
-        return QUESTION_ORDER
-
-    selected = []
-    for part in raw_value.split(","):
-        stripped = part.strip()
-        if not stripped:
-            continue
-        question_index = int(stripped)
-        if question_index not in QUESTION_BUILDERS:
-            raise ValueError(f"Question {question_index} is not implemented. Available: {QUESTION_ORDER}")
-        selected.append(question_index)
-    if not selected:
-        raise ValueError("No question indices provided")
-    return selected
-
-
-def combine_outputs(output_dir: Path, combined_output: Path, question_indices: list[int]):
-    with combined_output.open("w", encoding="utf-8") as out_handle:
-        for question_index in question_indices:
-            file_path = output_dir / f"questions_and_answers_{question_index}.jsonl"
-            if not file_path.exists():
-                continue
-            with file_path.open("r", encoding="utf-8") as in_handle:
-                for line in in_handle:
-                    out_handle.write(line)
-
-
-def generate_question_files(
+def generate_prediction_records(
     repo_root: Path,
-    output_dir: Path,
-    patient_count: int,
-    seed: int,
-    question_indices: list[int],
-    write_prompts_flag: bool,
-    prompts_dir: Path,
-):
+    patient_count: int = DEFAULT_PATIENT_COUNT,
+    seed: int = 0,
+    question_indices: list[int] | None = None,
+) -> tuple[list[dict], list[dict]]:
+    selected_questions = question_indices or QUESTION_ORDER
     ctx = GenerationContext(repo_root)
+    all_qa_flat: list[dict] = []
+    records: list[dict] = []
 
-    for question_index in question_indices:
-        output_path = output_dir / f"questions_and_answers_{question_index}.jsonl"
-        sample_patient = stable_choice(seed, question_index, patient_count)
-        with output_path.open("w", encoding="utf-8") as handle:
-            for patient_index in range(patient_count):
-                rng = stable_rng(seed, question_index, patient_index)
-                record = QUESTION_BUILDERS[question_index](ctx, patient_index, rng)
-                handle.write(json.dumps(record, default=convert_np) + "\n")
+    for question_index in selected_questions:
+        for patient_index in range(patient_count):
+            rng = stable_rng(seed, question_index, patient_index)
+            record = QUESTION_BUILDERS[question_index](ctx, patient_index, rng)
+            records.append(record)
+            all_qa_flat.extend(record["qa_pairs"])
 
-                if write_prompts_flag and patient_index == sample_patient:
-                    write_prompt(repo_root, prompts_dir, question_index, record)
-
-
-def build_arg_parser():
-    parser = argparse.ArgumentParser(
-        description="Generate prediction QA JSONL files from the notebook logic without using Jupyter.",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="questions",
-        help="Directory for generated questions_and_answers_*.jsonl files.",
-    )
-    parser.add_argument(
-        "--combined-output",
-        default="questions/combined_prediction.jsonl",
-        help="Path for the combined prediction JSONL file.",
-    )
-    parser.add_argument(
-        "--questions",
-        default="all",
-        help="Comma-separated question indices to generate, or 'all'.",
-    )
-    parser.add_argument(
-        "--patient-count",
-        type=int,
-        default=DEFAULT_PATIENT_COUNT,
-        help="Number of patients to generate per question file.",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=0,
-        help="Base seed used for deterministic sampling in questions with randomness.",
-    )
-    parser.add_argument(
-        "--skip-combined",
-        action="store_true",
-        help="Do not regenerate the combined prediction JSONL file.",
-    )
-    parser.add_argument(
-        "--write-prompts",
-        action="store_true",
-        help="Also write sample prompts to prompts/prediction if loopqa is available.",
-    )
-    parser.add_argument(
-        "--prompts-dir",
-        default="prompts/prediction",
-        help="Directory for optional prompt outputs.",
-    )
-    return parser
+    return all_qa_flat, records
 
 
-def main():
-    parser = build_arg_parser()
-    args = parser.parse_args()
+def generate_prediction_qa(data_dir: str, patient_count: int = DEFAULT_PATIENT_COUNT, seed: int = 0) -> None:
+    project_root = Path(__file__).resolve().parents[2]
+    output_root = Path(data_dir)
+    if not output_root.is_absolute():
+        output_root = (project_root / output_root).resolve()
 
-    repo_root = Path(__file__).resolve().parent
-    output_dir = (repo_root / args.output_dir).resolve()
-    combined_output = (repo_root / args.combined_output).resolve()
-    prompts_dir = (repo_root / args.prompts_dir).resolve()
-    question_indices = parse_question_indices(args.questions)
+    source_root = output_root if has_prediction_source_bundle(output_root) else project_root
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    generate_question_files(
-        repo_root=repo_root,
-        output_dir=output_dir,
-        patient_count=args.patient_count,
-        seed=args.seed,
-        question_indices=question_indices,
-        write_prompts_flag=args.write_prompts,
-        prompts_dir=prompts_dir,
+    qa_output_dir = output_root / "QAData"
+    qa_output_dir.mkdir(parents=True, exist_ok=True)
+
+    all_qa_flat, records = generate_prediction_records(
+        repo_root=source_root,
+        patient_count=patient_count,
+        seed=seed,
     )
 
-    if not args.skip_combined:
-        combined_output.parent.mkdir(parents=True, exist_ok=True)
-        combine_outputs(output_dir, combined_output, question_indices)
-
-
-if __name__ == "__main__":
-    main()
+    write_qa_json(all_qa_flat, qa_output_dir / "QA_prediction.json")
+    write_jsonl(records, qa_output_dir / "QA_prediction_with_context.jsonl")
