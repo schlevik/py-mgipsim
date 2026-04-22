@@ -22,6 +22,7 @@ from pymgipsim.generate_results import generate_results_main
 from pymgipsim.faultsGeneration import generate_faults
 
 from QAdataGeneration.AnomalyDetection.build_anomaly_dataset import generate_anomaly_detection_qa
+from QAdataGeneration.pattern.build_pattern_dataset import generate_pattern_recognition_qa
 from QAdataGeneration.prediction.generate_prediction_qa_pairs import (
     REQUIRED_PREDICTION_SCENARIOS,
     generate_prediction_qa,
@@ -515,6 +516,8 @@ def main(argv=None):
     if args.qa:
         print("Generating anomaly detection question answering dataset...")
         # generate_anomaly_detection_qa(args.data_path)
+        print("Generating pattern recognition question answering dataset...")
+        generate_pattern_recognition_qa(args.data_path)
         print("Building prediction source bundle...")
 
         # if fault is there we dont want to include it in the prediction source bundle and therefore generate a new bundle without faults
