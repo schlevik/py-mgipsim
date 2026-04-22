@@ -3,12 +3,38 @@
         "running_start_time": [
             "05:00",
             "07:00"
+        ],
+        "running_speed": [
+            5.0
+        ],
+        "cycling_start_time": [
+            "16:00",
+            "18:00"
+        ],
+        "cycling_duration": [
+            20.0
+        ],
+        "cycling_power": [
+            90.0
         ]
     },
     "late_night_snack": {
         "running_start_time": [
             "05:00",
             "07:00"
+        ],
+        "running_speed": [
+            5.0
+        ],
+        "cycling_start_time": [
+            "16:00",
+            "18:00"
+        ],
+        "cycling_duration": [
+            20.0
+        ],
+        "cycling_power": [
+            90.0
         ],
         "pm_snack_time_range": [
             1320,
@@ -19,6 +45,19 @@
         "running_start_time": [
             "05:00",
             "07:00"
+        ],
+        "cycling_start_time": [
+            "16:00",
+            "18:00"
+        ],
+        "running_speed": [
+            5.0
+        ],
+        "cycling_duration": [
+            20.0
+        ],
+        "cycling_power": [
+            90.0
         ],
         "lunch_carb_range": [
             160,
