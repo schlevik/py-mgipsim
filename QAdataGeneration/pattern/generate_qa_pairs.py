@@ -180,7 +180,7 @@ def generate_questions_and_answers(patient_data):
             continue
 
         baseline = bg_values[meal_index]
-        post_meal_window = min(180 // 5, len(bg_values) - meal_index - 1)  # 36 time steps = 3 hours
+        post_meal_window = min(180 // 5, len(bg_values) - meal_index - 1)  # 3 hours post-meal window in steps (36 steps)
 
         if post_meal_window <= 0:
             continue
@@ -261,7 +261,7 @@ def generate_questions_and_answers(patient_data):
         post_nadir = np.min(post_bg)
         post_mean = np.mean(post_bg)
         post_sd = np.std(post_bg)
-        post_cv = round((post_sd / post_mean) * 100, 2)
+        post_cv = round((post_sd / post_mean) * 100, 1)
         post_nadir_idx = np.argmin(post_bg)
         time_to_lowest_post_exercise = post_nadir_idx * 5  # assuming 5-minute sampling
 
@@ -464,7 +464,7 @@ def generate_questions_and_answers(patient_data):
         "question_text": f"What was the average glucose reading between 2-4pm on {day_name}?",
         "answer": round(np.mean(daily_bg[day_key]["bg"][168:192]), 1),
         "answer_generation_rule": f"Filter readings for 2-4 pm on {day_name} and compute the mean.",
-        "answer_instruction": f"Return the average glucose value for {day_name} between 2-4pm, rounded to one decimal place.",
+        "answer_instruction": f"Extract glucose readings from 2-4 pm for {day_name}, compute the mean, and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
         "example_answer": 128.5
@@ -568,26 +568,6 @@ def generate_questions_and_answers(patient_data):
 
 
     # Meal-related questions
-    random_day = random.randint(1, 30)
-    day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
-
-    questions_and_answers.append({
-        "question_text": f"How did the patient's blood glucose respond to breakfast on {day_name}?",
-        "answer": {
-            'Baseline': round(meal_responses[day_key]['breakfast']['baseline'],1),
-            'Peak': round(meal_responses[day_key]['breakfast']['peak'],1), 
-            'Peak_time': meal_responses[day_key]['breakfast']['peak_time_minutes']
-        },
-        "answer_generation_rule": "Compare baseline glucose at meal time to maximum value in post-meal window (3 hours) on {day_name}.",
-        "answer_instruction": f"Return a dictionary containing the baseline glucose value (the glucose value immediately before the meal), the peak glucose value, and the time of the peak (in minutes from the start) within the 3-hour post-meal window on {day_name}. Use the keys 'Baseline', 'Peak', and 'Peak_time'.",
-        "answer_type": "dict",
-        "metric": "{'Baseline': 'MAE', 'Peak': 'MAE', 'Peak_time': 'MAE'}",
-        "example_answer": {'Baseline': 95.0, 'Peak': 160.0, 'Peak_time': 525},
-    })
 
     random_day = random.randint(1, 30)
     day_key = f"day{random_day}"
@@ -630,10 +610,10 @@ def generate_questions_and_answers(patient_data):
     day_in_week = (random_day - 1) % 7 + 1
     day_name = f"week {week}, day {day_in_week}"
     questions_and_answers.append({
-        "question_text": f"Which meal caused the highest glucose spike on {day_name}?",
+        "question_text": f"Which meal caused the highest glucose rise on {day_name}?",
         "answer": meal_responses[day_key]['max_spike_meal'],
-        "answer_generation_rule": f"Compare spike (peak minus baseline) values for all meals in post-meal window (3 hours) to find largest increase on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the times of breakfast, lunch, and dinner, for each meal record the baseline glucose as the value immediately before the meal, select glucose readings within the 3-hour post-meal window, compute the spike as the difference between the maximum glucose value in the window and the baseline, compare the spikes across the three meals, and return the meal name ('breakfast', 'lunch', or 'dinner') corresponding to the largest spike.",
+        "answer_generation_rule": f"Compare glucose rise (peak minus baseline) values for all meals in post-meal window (3 hours) to find largest increase on {day_name}.",
+        "answer_instruction": f"Identify {day_name} and locate the times of breakfast, lunch, and dinner, for each meal record the baseline glucose as the value immediately before the meal, select glucose readings within the 3-hour post-meal window, compute the glucose rise as the difference between the maximum glucose value in the window and the baseline, compare the rises across the three meals, and return the meal name ('breakfast', 'lunch', or 'dinner') corresponding to the largest rise.",
         "answer_type": "categorical",
         "metric": "Accuracy",
         "example_answer": "lunch"
@@ -668,8 +648,8 @@ def generate_questions_and_answers(patient_data):
     questions_and_answers.append({
         "question_text": "List all days with a carb-heavy dinner and the corresponding glucose spikes.",
         "answer": heavy_dinner_days,
-        "answer_generation_rule": "Find days where the dinner meal has 80 or more carbs and report the glucose spike after dinner as (peak - baseline) in a 3 hour time window.",
-        "answer_instruction": "Find days where the dinner meal has 80 or more carbs. For each such day, calculate the glucose spike within the 3-hour post-dinner window, defined as the difference between the peak glucose level and the baseline value (the glucose measurement immediately before dinner). Return the results as a list of tuples, where each tuple contains the day number (1–30) and the spike value rounded to one decimal place.",
+        "answer_generation_rule": "Find days where the dinner meal has 80 or more carbs and report the glucose rise after dinner as (peak - baseline) in a 3 hour time window.",
+        "answer_instruction": "Find days where the dinner meal has 80 or more carbs. For each such day, calculate the glucose rise within the 3-hour post-dinner window, defined as the difference between the peak glucose level and the baseline value (the glucose measurement immediately before dinner). Return the results as a list of tuples, where each tuple contains the day number (1–30) and the rise value rounded to one decimal place.",
         "answer_type": "list of tuples (int, float)",
         "metric": "F1",
         "example_answer": [(1, 85.0), (12, 92.5), (21, 105.3)]
@@ -690,23 +670,6 @@ def generate_questions_and_answers(patient_data):
         "answer_type": "float",
         "metric": "MAE",
         "example_answer": 165.0
-    })
-
-    random_day = random.randint(1, 30)
-    day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
-
-    questions_and_answers.append({
-        "question_text": f"Which meal caused the highest glucose spike on {day_name}?",
-        "answer": meal_responses[day_key]['max_spike_meal'],
-        "answer_generation_rule": f"Compare 'spike' (peak - baseline) values for breakfast, lunch, and dinner in post-meal window (3 hours) on {day_name}. Select the meal with the highest spike.",
-        "answer_instruction": f"Identify {day_name} and locate breakfast, lunch, and dinner times, for each meal record the baseline glucose as the value immediately before the meal, select glucose readings within the 3-hour post-meal window, compute the spike as the difference between the maximum glucose value in the window and the baseline, compare the spikes across the three meals, and return the meal name ('breakfast', 'lunch', or 'dinner') corresponding to the largest spike.",
-        "answer_type": "categorical",
-        "metric": "Accuracy",
-        "example_answer": "lunch"
     })
     
 
@@ -841,7 +804,7 @@ def generate_questions_and_answers(patient_data):
     questions_and_answers.append({
         "question_text": f"What was the maximum glucose drop following activity on {day_name}?",
         "answer": round(exercise_responses[day_key]['max_drop'], 1),
-        "answer_generation_rule": f"Subtract the lowest post-exercise glucose value within 1 hour time window from the pre-exercise baseline on {day_name}.",
+        "answer_generation_rule": f"Subtract the lowest post-exercise glucose value within 2 hour time window from the pre-exercise baseline on {day_name}.",
         "answer_instruction": f"Identify {day_name} and locate the exercise session, record the pre-exercise baseline as the glucose value immediately before exercise starts, select all glucose readings within the 2-hour window after exercise ends, find the minimum glucose value in that window, subtract this minimum value from the baseline value, and return the result as a float rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
