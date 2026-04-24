@@ -154,6 +154,8 @@ def extract_carb_events(payload: Dict[str, Any], person_idx: int) -> List[Dict[s
         times = payload["inputs"]["snack_carb"]["start_time"][person_idx]
         snack_types = ["morning_snack", "afternoon_snack"]
         for idx, (carbs, t) in enumerate(zip(mags, times)):
+            t = round(t,3)
+            carbs = round(carbs,3)
             day, time_str = format_time_info(t)
             events.append({
                 "time": t, "day": day, "time_str": time_str,
@@ -173,6 +175,9 @@ def extract_exercise_events(payload: Dict[str, Any], person_idx: int) -> List[Di
         start_times = payload["inputs"][source]["start_time"][person_idx]
         durations = payload["inputs"][source]["duration"][person_idx]
         for mag, t, d in zip(magnitudes, start_times, durations):
+            mag = round(mag,3)
+            t = round(t,3)
+            d = round(d,3)
             if mag == 0:
                 continue
             day, time_str = format_time_info(t)
@@ -290,7 +295,7 @@ def sanitize_intervals_if_needed(answer: Any) -> Any:
     return answer
 
 
-def run_qa_for_patient(base_dir: str, patient_id: str, funcs: Dict[str, Any], meta_by_qid: Dict[str, Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def run_qa_for_patient(base_dir: str, patient_id: str, funcs: Dict[str, Any], meta_by_qid: Dict[str, Dict[str, Any]], question_ids=None) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Execute all question functions on one patient's dataframe and build qa_pairs.
     Returns:
@@ -311,6 +316,15 @@ def run_qa_for_patient(base_dir: str, patient_id: str, funcs: Dict[str, Any], me
     df = ggt.preprocess_df(df, input_context)
 
     qa_pairs: List[Dict[str, Any]] = []
+
+    if question_ids is not None:
+        print(f"Generating anomaly detection QA for question id {question_ids}")
+        target_suffixes = [f"ad{i}" for i in question_ids]
+        filtered_functions = {
+            k: v for k, v in funcs.items()
+            if any(k.endswith(suffix) for suffix in target_suffixes)
+        }
+        funcs = filtered_functions
 
     for fname, func in funcs.items():
         try:
@@ -364,7 +378,7 @@ def write_jsonl(records: List[Dict[str, Any]], path: str) -> None:
 
 # ------------------------------ CLI -----------------------------------------
 
-def generate_anomaly_detection_qa(data_dir):
+def generate_anomaly_detection_qa(data_dir, qa_ids=None):
     # parser = argparse.ArgumentParser(description="Build anomaly-detection QA dataset.")
     # parser.add_argument("--base_dir", type=str, default="SimulationResults", help="Root folder containing Patient_* subfolders.")
     # parser.add_argument("--out_inputs_dir", type=str, default="QAData", help="Folder to optionally store per-patient input snapshots (JSONL).")
@@ -397,7 +411,7 @@ def generate_anomaly_detection_qa(data_dir):
         pid = f"Patient_{i}"
         logging.info("Processing %s ...", pid)
 
-        qa_pairs, input_context = run_qa_for_patient(base_dir, pid, funcs, meta_by_qid)
+        qa_pairs, input_context = run_qa_for_patient(base_dir, pid, funcs, meta_by_qid, qa_ids)
         if not qa_pairs:
             continue
 

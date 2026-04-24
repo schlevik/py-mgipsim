@@ -433,6 +433,13 @@ def main(argv=None):
         default=None,
         help='Specify QA data types (pm, ad, pd). Can pass one or multiple. If not provided, only simulation data will be generated.',
     )
+    parser.add_argument(
+        '--ad_ids',
+        type=int,
+        nargs='+',
+        default=None,
+        help="List of anomaly detection question IDs to generate (e.g., 1 3 5)"
+    )
 
     args = parser.parse_args(argv)
     print("Arguments parsed successfully.")
@@ -517,7 +524,7 @@ def main(argv=None):
 
     if 'ad' in args.qa:
         print("Generating anomaly detection question answering dataset...")
-        generate_anomaly_detection_qa(args.data_path)
+        generate_anomaly_detection_qa(args.data_path, args.ad_ids)
     if 'pm' in args.qa:
         print("Generating pattern recognition question answering dataset...")
         generate_pattern_recognition_qa(args.data_path)
@@ -549,8 +556,9 @@ if __name__ == '__main__':
         '-ns', '20',
         '-ctrl', 'OpenAPS',
         '-ft', 'repeated_episode',
-        '--data_path', 'SimulationResults/Simulation_OpenAPS_training_normal_scenario1',
+        '--data_path', 'SimulationResults/Simulation_ad_testing_30day_withNaNInstruction',
         '-st', '5',
-        '--qa', 'pd'
+        '--qa', 'ad',
+        '--ad_ids', '1', '5', '9', '46'
     ]
     main()
