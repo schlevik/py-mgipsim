@@ -318,6 +318,9 @@ def generate_questions_and_answers(patient_data):
         "answer_type": "float",
         "metric": "MAE",
         "example_answer": 80.5,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Average Glucose Reading"
     })
    
     questions_and_answers.append({
@@ -327,7 +330,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Scan all glucose readings to identify the maximum value. Report it as a float rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE", 
-        "example_answer": 130.0
+        "example_answer": 130.0,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Maximum Glucose Reading"
     })
 
     questions_and_answers.append({
@@ -337,7 +343,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Scan all glucose readings to identify the minimum value. Report it as a float rounded to one decimal place",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 50.0
+        "example_answer": 50.0,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Minimum Glucose Reading"
     })
 
     questions_and_answers.append({
@@ -347,7 +356,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Scan all glucose readings to identify the maximum value. Locate the index of its first occurrence and multiply by 5 to convert to minutes, and report the corresponding minutes.",
         "answer_type": "int",
         "metric": "MAE",
-        "example_answer": 860
+        "example_answer": 860,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "QC,TR",
+        "question_prototype": "Time of Maximum"
     })
 
     questions_and_answers.append({
@@ -357,7 +369,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Count the number of glucose readings between 70 and 180 mg/dL (inclusive), multiply by 5 to get minutes, then convert to hours and round to one decimal.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 5.5
+        "example_answer": 5.5,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Time in Range"
+
     })
 
     questions_and_answers.append({
@@ -367,7 +383,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Identify all glucose readings strictly greater than 180 mg/dL (exclude 180), count the number of such readings, multiply by 5 to convert the count to minutes, then divide by 60 to convert to hours and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 5.5
+        "example_answer": 5.5,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Time Above Range"
+
     })
 
     questions_and_answers.append({
@@ -377,7 +397,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Identify all glucose readings strictly less than 70 mg/dL (exclude 70), count the number of such readings, multiply by 5 to convert the count to minutes, then divide by 60 to convert to hours and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 5.5
+        "example_answer": 5.5,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Time Below Range"
+
     })
 
     questions_and_answers.append({
@@ -387,7 +411,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Identify all glucose readings strictly less than 70 mg/dL (exclude 70), count the total number of such readings, and return this count as an integer.",
         "answer_type": "int",
         "metric": "MAE",
-        "example_answer": 3
+        "example_answer": 3,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Hypoglycemic Events"
+
     })
 
     questions_and_answers.append({
@@ -397,7 +425,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Identify all glucose readings strictly greater than 180 mg/dL (exclude 180), count the total number of such readings, and return this count as an integer.",
         "answer_type": "int",
         "metric": "MAE",
-        "example_answer": 3
+        "example_answer": 3,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Hyperglycemic Events"
+
     })
 
     questions_and_answers.append({
@@ -407,7 +439,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Return the standard deviation of glucose values, rounded to one decimal place",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 2.0
+        "example_answer": 2.0,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Standard Deviation"
     })
 
     questions_and_answers.append({
@@ -417,7 +452,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Calculate the proportion of glucose readings between 70 and 180 mg/dL (inclusive), multiply by 100 to get percentage, and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 36.0
+        "example_answer": 36.0,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Time in Range"
+
     })
 
     questions_and_answers.append({
@@ -427,7 +466,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Calculate the proportion of glucose readings strictly greater than 180 mg/dL (exclude 180) relative to the total number of readings, multiply by 100 to obtain the percentage, and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 38.0
+        "example_answer": 38.0,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Time Above Range"
+
     })
 
     questions_and_answers.append({
@@ -437,7 +480,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Calculate the proportion of glucose readings strictly less than 70 mg/dL (exclude 70) relative to the total number of readings, multiply by 100 to obtain the percentage, and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 40.0
+        "example_answer": 40.0,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Time Below Range"
+
     })
 
     questions_and_answers.append({
@@ -447,7 +494,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "For each pair of consecutive glucose readings, compute the rate of change by subtracting the earlier value from the later value and dividing by the time interval in minutes between the readings, take the absolute value of each rate, check whether any rate exceeds 2 mg/dL/min, and return 'Yes' if at least one does, otherwise return 'No'.",
         "answer_type": "categorical",
         "metric": "Accuracy",
-        "example_answer": "Yes"
+        "example_answer": "Yes",
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC,CA",
+        "question_prototype": "Rapid Glucose Fluctuations"
+
     })
 
 
@@ -467,7 +518,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Extract glucose readings from 2-4 pm for {day_name}, compute the mean, and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 128.5
+        "example_answer": 128.5,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "QC,CA",
+        "question_prototype": "Average Glucose Reading"
+
     })
 
     # stable days
@@ -522,7 +577,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "For each day, calculate the coefficient of variation by dividing the standard deviation of that day’s glucose values by the mean glucose for that day and multiplying by 100, identify all days where this value is less than 36, and return their day indices using 1-based numbering as a list, e.g., [1, 3, 5].",
         "answer_type": "list",
         "metric": "F1",
-        "example_answer": [1, 3, 15, 27]
+        "example_answer": [1, 3, 15, 27],
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC,CA",
+        "question_prototype": "Stable Glucose Days"
+
     })
 
     questions_and_answers.append({
@@ -532,7 +591,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "For each day, calculate the coefficient of variation by dividing the standard deviation of that day’s glucose values by the mean glucose for that day and multiplying by 100, compare these daily values across all days, and return the 1-based day index of the day with the highest coefficient of variation.",
         "answer_type": "int",
         "metric": "Accuracy",
-        "example_answer": 4
+        "example_answer": 4,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC,CA",
+        "question_prototype": "Most Variable Glucose Day"
+
     })
 
     questions_and_answers.append({
@@ -542,7 +605,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "For each day, calculate the coefficient of variation by dividing the standard deviation of that day’s glucose values by the mean glucose for that day and multiplying by 100, compare these daily values across all days, and return the 1-based day index of the day with the lowest coefficient of variation.",
         "answer_type": "int", 
         "metric": "Accuracy",
-        "example_answer": 2
+        "example_answer": 2,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC,CA",
+        "question_prototype": "Most Stable Glucose Day"
     })
 
     # Comparison questions
@@ -553,7 +619,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "For each day, separate glucose readings into the 6am–12pm period and the 12pm–6pm period, calculate the standard deviation of glucose values for each period on each day, compute the average standard deviation across all days for each time period, and compare the two averages to determine which period shows greater glucose variability. Select one of the following options based on which period has higher glucose variability: 'morning', 'afternoon', or 'equal in both'.",
         "answer_type": "categorical",
         "metric": "Accuracy",
-        "example_answer": "morning"
+        "example_answer": "morning",
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC,CA",
+        "question_prototype": "Glucose Variability by Time of Day"
+
     })
 
     questions_and_answers.append({
