@@ -77,7 +77,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Identify all insulin events across the full monitoring period, including both basal and bolus insulin events, sum all recorded insulin amounts, and return the total rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 634.00
+        "example_answer": 634.00,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Insulin Dosage"   
     })
 
     if largest_bolus_time_minutes is not None:
@@ -88,7 +91,10 @@ def generate_questions_and_answers(patient_data):
             "answer_instruction": "Identify all insulin bolus events across the full monitoring period, find the bolus event with the largest insulin amount, determine its timestamp, convert that timestamp to minutes elapsed since the start of the monitoring period, and return that value.",
             "answer_type": "int",
             "metric": "MAE",
-            "example_answer": 465
+            "example_answer": 465,
+            "cognitive_level": "Descriptive",
+            "cognitive_atomic": "ER,QC,TR",
+            "question_prototype": "Largest Insulin Dosage"   
         })
 
     # memory/temporal
@@ -103,7 +109,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify all basal and bolus insulin events occurring on {day_name}, sum their insulin amounts, and return the total insulin dose for that day rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 34.0
+        "example_answer": 34.0,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC",
+        "question_prototype": "Insulin Dosage"   
     })
 
     random_day = random.randint(1, min(30, num_days))
@@ -118,7 +127,10 @@ def generate_questions_and_answers(patient_data):
             "answer_instruction": f"Identify all insulin bolus events that occur on {day_name}, find the bolus with the largest insulin amount, determine its timestamp, convert that timestamp to minutes elapsed since the start of the dataset at week 1 day 1 00:00, and return that value.",
             "answer_type": "int",
             "metric": "MAE",
-            "example_answer": 465
+            "example_answer": 465,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "TR,QC",
+            "question_prototype": "Largest Insulin Dosage"   
         })
 
     # Calculate weekday vs weekend insulin usage for first week only
@@ -156,7 +168,10 @@ def generate_questions_and_answers(patient_data):
             ),
             "answer_type": "categorical",
             "metric": "Accuracy",
-            "example_answer": "Yes"
+            "example_answer": "Yes",
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "TR,QC,CA",
+            "question_prototype": "Insulin Dosage"  
         })
 
     return questions_and_answers
