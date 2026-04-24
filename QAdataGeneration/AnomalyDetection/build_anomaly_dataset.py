@@ -186,7 +186,7 @@ def extract_exercise_events(payload: Dict[str, Any], person_idx: int) -> List[Di
 
 def extract_insulin_from_csv(csv_path: str, person_idx: int) -> Dict[str, Any]:
     df = pd.read_csv(csv_path)
-    return {"magnitude": df.iloc[:, person_idx].tolist()}
+    return {"magnitude": df.iloc[:, person_idx].round(3).tolist()}
 
 
 def load_bg_df(xlsx_path: str, sheet_name: str = "Patient_0") -> pd.DataFrame:
@@ -197,7 +197,7 @@ def load_bg_df(xlsx_path: str, sheet_name: str = "Patient_0") -> pd.DataFrame:
     if "IG (mmol/L)" not in df.columns:
         raise ValueError(f"Missing 'IG (mmol/L)' in {xlsx_path}:{sheet_name}")
     df = df.copy()
-    df["BG"] = df["IG (mmol/L)"] * 18
+    df["BG"] = (df["IG (mmol/L)"] * 18).round(3)
     return df
 
 
@@ -262,16 +262,19 @@ def collect_question_metadata(funcs: Dict[str, Any], meta_table) -> Dict[str, Di
     for fname, func in funcs.items():
         doc = inspect.getdoc(func)
         qid, qtext, rule, metric, answer_type, answer_instruction = parse_docstring(doc, fallback_id=fname)
-        meta_t = meta_table[meta_table['id'] == qid]
+        meta_t = meta_table[meta_table['question_id'] == qid]
         meta[qid] = {
             "function_name": fname,
             "question_id": qid,
-            "question_text": meta_t['question'].iloc[0],       # qtext,
+            "question_text": meta_t['question_text'].iloc[0],       # qtext,
             "answer_generation_rule": rule,
             "metric": meta_t['metric'].iloc[0],                        # metric,
             "answer_type": answer_type,
-            "answer_instruction": answer_instruction,
-            "explanation": meta_t['explanation'].iloc[0]
+            # "answer_instruction": answer_instruction,
+            "answer_instruction": meta_t['answer_instruction'].iloc[0],
+            "cognitive_level": meta_t['cognitive_level'].iloc[0],
+            "cognitive_atomic": meta_t['cognitive_atomic'].iloc[0],
+            "question_prototype": meta_t['question_prototype'].iloc[0]
         }
     return meta
 
@@ -302,7 +305,10 @@ def run_qa_for_patient(base_dir: str, patient_id: str, funcs: Dict[str, Any], me
         logging.warning("Simulation data %s for patient %s not found.", xlsx, patient_id)
         return [], {}
 
-    df = ggt.preprocess_df(df)
+    # Build input_context after QA; order doesn’t matter but we reuse BG once
+    input_context = build_input_context_for_patient(base_dir, patient_id)
+
+    df = ggt.preprocess_df(df, input_context)
 
     qa_pairs: List[Dict[str, Any]] = []
 
@@ -333,11 +339,11 @@ def run_qa_for_patient(base_dir: str, patient_id: str, funcs: Dict[str, Any], me
             "metric": meta.get("metric", ""),
             "answer": ans,
             "example_answer": generate_example_answer(meta.get("answer_type", "")),
-            "explanation": meta['explanation']
+            "cognitive_level": meta['cognitive_level'],
+            "cognitive_atomic": meta['cognitive_atomic'],
+            "question_prototype": meta['question_prototype']
         })
 
-    # Build input_context after QA; order doesn’t matter but we reuse BG once
-    input_context = build_input_context_for_patient(base_dir, patient_id)
     return qa_pairs, input_context
 
 
@@ -381,7 +387,7 @@ def generate_anomaly_detection_qa(data_dir):
     os.makedirs(out_inputs_dir, exist_ok=True)
 
     funcs = collect_question_funcs()
-    qa_table = pd.read_csv("QAdataGeneration/AnomalyDetection/QA tables - Anomaly Detection.csv")
+    qa_table = pd.read_csv("QAdataGeneration/AnomalyDetection/QA_meta.csv")
     meta_by_qid = collect_question_metadata(funcs, qa_table)
 
     all_qa_flat: List[Dict[str, Any]] = []

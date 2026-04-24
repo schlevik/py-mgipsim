@@ -428,8 +428,10 @@ def main(argv=None):
     )
     parser.add_argument(
         '--qa',
-        action='store_true',
-        help='Enable generation of QA data. If not provided, only simulation data will be generated.',
+        nargs='+',
+        choices=['pm', 'ad', 'pd'],
+        default=None,
+        help='Specify QA data types (pm, ad, pd). Can pass one or multiple. If not provided, only simulation data will be generated.',
     )
 
     args = parser.parse_args(argv)
@@ -513,13 +515,14 @@ def main(argv=None):
     patient_count = get_saved_patient_count(base_scenario, base_settings_path)
     args.number_of_subjects = patient_count
 
-    if args.qa:
+    if 'ad' in args.qa:
         print("Generating anomaly detection question answering dataset...")
-        # generate_anomaly_detection_qa(args.data_path)
+        generate_anomaly_detection_qa(args.data_path)
+    if 'pm' in args.qa:
         print("Generating pattern recognition question answering dataset...")
         generate_pattern_recognition_qa(args.data_path)
         print("Building prediction source bundle...")
-
+    if 'pd' in args.qa:
         # if fault is there we dont want to include it in the prediction source bundle and therefore generate a new bundle without faults
         build_prediction_source_bundle(
             results_folder_path=results_folder_path,
@@ -530,12 +533,12 @@ def main(argv=None):
         print("Generating prediction question answering dataset...")
         generate_prediction_qa(args.data_path, patient_count=patient_count)
 
-    all_figures = []
-    for patient_index in range(patient_count):
-        args.plot_patient = patient_index
-        print(f"Generating plots for Patient (index {patient_index})")
-        figures = generate_plots_main(str(results_folder_path), args)
-        all_figures.append(figures)
+    # all_figures = []
+    # for patient_index in range(patient_count):
+    #     args.plot_patient = patient_index
+    #     print(f"Generating plots for Patient (index {patient_index})")
+    #     figures = generate_plots_main(str(results_folder_path), args)
+    #     all_figures.append(figures)
 
 
 if __name__ == '__main__':
@@ -546,7 +549,8 @@ if __name__ == '__main__':
         '-ns', '20',
         '-ctrl', 'OpenAPS',
         '-ft', 'repeated_episode',
-        '--data_path', 'SimulationResults/Simulation 11_26_2025_17_50_17',
+        '--data_path', 'SimulationResults/Simulation_OpenAPS_training_normal_scenario1',
         '-st', '5',
+        '--qa', 'pd'
     ]
     main()
