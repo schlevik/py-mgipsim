@@ -8,6 +8,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from QAdataGeneration.prediction.source_bundle import (
+    REQUIRED_PREDICTION_SCENARIOS,
+    available_prediction_patients,
+    has_prediction_source_bundle,
+    validate_prediction_source_bundle,
+)
+
 SAMPLES_PER_DAY = 24 * 12
 DEFAULT_PATIENT_COUNT = 20
 QUESTION_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20]
@@ -206,11 +213,6 @@ REQUIRED_METADATA_FIELDS = (
 )
 ALLOWED_METRICS = {"accuracy", "MAE"}
 ALLOWED_ANSWER_TYPES = {"string", "float", "int"}
-REQUIRED_PREDICTION_SCENARIOS = {
-    "normal_day": "insulin_input_normal.csv",
-    "late_night_snack": "insulin_input_late_night_snack.csv",
-    "overeating_lunch": "insulin_input_overeating_lunch.csv",
-}
 
 
 def convert_np(value):
@@ -258,6 +260,21 @@ def array_split(values, sections: int):
 
 def argmax(values):
     return max(range(len(values)), key=values.__getitem__)
+
+
+def round_context_numbers(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return round(value, 3)
+    if isinstance(value, list):
+        return [round_context_numbers(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: round_context_numbers(item)
+            for key, item in value.items()
+        }
+    return value
 
 
 def build_qa(patient_index: int, question_index: int, answer, example_answer):
@@ -343,7 +360,7 @@ def build_input_context(
 def build_record(patient_index: int, input_context: dict, qa: dict):
     return {
         "patient_id": patient_id(patient_index),
-        "input_context": input_context,
+        "input_context": round_context_numbers(input_context),
         "qa_pairs": [qa],
     }
 
@@ -376,7 +393,7 @@ def find_carb_index_between(carb_events, start_time: float, end_time: float) -> 
 def find_recent_snack_index(carb_events, cutoff_time: float) -> int:
     snack_index = None
     for event in carb_events:
-        if cutoff_time - 120 <= event["time"] < cutoff_time:
+        if cutoff_time - 120 <= event["time"] <= cutoff_time:
             snack_index = int(event["time"] // 5) + 1
     if snack_index is None:
         raise ValueError(f"No snack found before cutoff time {cutoff_time}")
@@ -425,41 +442,6 @@ class GenerationContext:
             with path.open("r", encoding="utf-8") as handle:
                 self.simulation_cache[cache_key] = json.load(handle)
         return self.simulation_cache[cache_key]
-
-
-def has_prediction_source_bundle(root: Path) -> bool:
-    try:
-        validate_prediction_source_bundle(root)
-    except FileNotFoundError:
-        return False
-    return True
-
-
-def validate_prediction_source_bundle(bundle_root: Path) -> None:
-    missing_paths = []
-    for scenario_name, insulin_csv in REQUIRED_PREDICTION_SCENARIOS.items():
-        scenario_data = bundle_root / "SimulationData" / scenario_name
-        scenario_results = bundle_root / "SimulationResults" / scenario_name
-        insulin_input = bundle_root / insulin_csv
-
-        if not scenario_data.exists():
-            missing_paths.append(str(scenario_data))
-        if not scenario_results.exists():
-            missing_paths.append(str(scenario_results))
-        if not insulin_input.exists():
-            missing_paths.append(str(insulin_input))
-
-    if missing_paths:
-        formatted_paths = "\n- ".join(missing_paths)
-        raise FileNotFoundError(
-            f"Prediction source bundle is incomplete under {bundle_root}. "
-            f"Expected the following paths to exist:\n- {formatted_paths}"
-        )
-
-
-def available_prediction_patients(bundle_root: Path, scenario_name: str = "normal_day") -> int:
-    scenario_dir = bundle_root / "SimulationData" / scenario_name
-    return sum(1 for path in scenario_dir.glob(f"{scenario_name}_*_simulation_data.jsonl") if path.is_file())
 
 
 def question_0(ctx: GenerationContext, patient_index: int, rng: random.Random):

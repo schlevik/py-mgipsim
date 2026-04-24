@@ -16,3 +16,15 @@ loadmatlabpatients.py
 .vscode/
 .claude/
 .venv/
+
+/questions/
+
+/SimulationData/
+/sample_output/
+/ablation_prompts/
+*.csv
+*.jsonl
+
+*.ipynb
+*.txt
+*.zip
