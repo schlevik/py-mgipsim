@@ -28,6 +28,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "The answer should be morning, afternoon, evening or night where morning is from 6AM to 12PM, afternoon is from 12PM to 6PM, evening is from 6PM to 12AM and night is from 12AM to 6AM",
         "answer_type": "string",
         "metric": "accuracy",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "PR,QC,PC",
         "question_prototype": "BG pattern forecasting",
     },
@@ -39,6 +40,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Use the relevant information given and predict a valid blood glucose value",
         "answer_type": "float",
         "metric": "MAE",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "PR,QC,PC",
         "question_prototype": "Short-term BG forecasting",
     },
@@ -50,6 +52,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Use the insulin consumed on the 1st, 8th and 15th of the month to predict the total insulin consumption for monday next week.",
         "answer_type": "float",
         "metric": "MAE",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "PC,QC",
         "question_prototype": "Insulin demand forecasting",
     },
@@ -61,6 +64,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Consider 5 hours post snack time for checking if the sugar will be higher than 180mg/dL at any point. If you think the sugar will be higher than 180mg/dL, answer 'Yes', otherwise answer 'No'",
         "answer_type": "string",
         "metric": "accuracy",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "PR,ER,QC",
         "question_prototype": "Snack impact forecasting",
     },
@@ -72,6 +76,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Make a prediction based on the carb intake, insulin, blood glucose values and exercise events",
         "answer_type": "float",
         "metric": "MAE",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "QC",
         "question_prototype": "Time in range forecasting",
     },
@@ -83,6 +88,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Take the current blood glucose values and assume the running exercise event immediately starts and predict if the blood glucose values will be lower than 70mg/dL in the next 90 minutes.If you think the blood glucose values will be lower than 70mg/dL, answer 'Yes', otherwise answer 'No'",
         "answer_type": "string",
         "metric": "accuracy",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "QC,PR",
         "question_prototype": "Exercise impact forecasting",
     },
@@ -94,6 +100,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Take the current blood glucose values and assume the carbohydrate intake event immediately starts and predict the glucose level 1 hour after the carbohydrate intake. Return a float number for the glucose level 1 hour after the carbohydrate intake.",
         "answer_type": "float",
         "metric": "MAE",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "QC,PR",
         "question_prototype": "Meal impact forecasting",
     },
@@ -105,6 +112,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Assume the running exercise event immediately starts and the running duration is 30 minutes. Predict the change in blood glucose values in the next 15 minutes after the run is completed. Return the change in blood glucose value as a float value",
         "answer_type": "float",
         "metric": "MAE",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "QC,PR",
         "question_prototype": "Exercise impact forecasting",
     },
@@ -116,6 +124,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Assume the cycling exercise event starts immedietly and the cycling duration is 20 minutes. Predict the change in blood glucose values in the next 60 minutes after the cycling session.",
         "answer_type": "float",
         "metric": "MAE",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "QC,PR",
         "question_prototype": "Exercise impact forecasting",
     },
@@ -127,6 +136,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Assume cycling is for 20 minutes and running is for 30 minutes. Return the exercise type that will bring down blood sugar the most.",
         "answer_type": "string",
         "metric": "accuracy",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "CA,QC,PR",
         "question_prototype": "Exercise impact forecasting",
     },
@@ -138,6 +148,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Take the current glucose, insulin values, food intake and exercise events and predict if the blood glucose values will be lower than 70mg/dL or higher than 180mg/dL at any point from now until the end of the day. If you think the blood glucose values will be between 70mg/dL and 180mg/dL at all points from now until the end of the day, answer 'Yes', otherwise answer 'No'",
         "answer_type": "string",
         "metric": "accuracy",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "PC,QC",
         "question_prototype": "Time in range forecasting",
     },
@@ -149,6 +160,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Predict the time index assuming time is between 12AM to 12AM where index goes from 0 to 288 where time is sampled every 5 minutes",
         "answer_type": "int",
         "metric": "MAE",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "ER,QC,PR",
         "question_prototype": "Meal impact forecasting",
     },
@@ -160,6 +172,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Make a prediction on what the average glucose value will be for tomorrow and compare it with the average glucose value for today.",
         "answer_type": "string",
         "metric": "accuracy",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "CA,QC,PR",
         "question_prototype": "BG pattern forecasting",
     },
@@ -171,6 +184,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Predict if a user has to take an insulin dose in the next 2 hours.",
         "answer_type": "string",
         "metric": "accuracy",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "ER,QC,PR",
         "question_prototype": "Insulin demand forecasting",
     },
@@ -182,6 +196,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Predict if the blood glucose might go up by more than 60 mg/dL or go down by more than 60 mg/dL in the next 4 hours from the current value.",
         "answer_type": "string",
         "metric": "accuracy",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "ER,QC,PR",
         "question_prototype": "BG pattern forecasting",
     },
@@ -193,6 +208,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Predict if the patient should eat a snack to ensure their glucose stays in range between 12AM-6AM",
         "answer_type": "string",
         "metric": "accuracy",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "QC,ER,PR",
         "question_prototype": "Snack impact forecasting",
     },
@@ -204,6 +220,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Predict if adjacent time periods with the highest glucose change will be during lunch time (9-1PM) or dinner time (6-10PM). Return a string value of 'lunch' or 'dinner' where 'lunch' means that the blood sugar will go up faster during lunch time (9-1PM) and 'dinner' means that the blood sugar will go up faster during dinner time (6-10PM).",
         "answer_type": "string",
         "metric": "accuracy",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "CA,QC,ER,PR",
         "question_prototype": "Meal impact forecasting",
     },
@@ -215,6 +232,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Calculate the average insulin consumption for the first 3 weeks and predict the future average insulin consumption for the next week and compare. Return a string value of 'more' or 'less' where 'more' means that the user will need more insulin than average in this coming week and 'less' means that the user will need less insulin than average in this coming week.",
         "answer_type": "string",
         "metric": "accuracy",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "QC,CA,PR",
         "question_prototype": "Insulin demand forecasting",
     },
@@ -226,6 +244,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Assume that insulin will start working immediately and predict the blood glucose level in the next 2 hours.",
         "answer_type": "float",
         "metric": "MAE",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "QC,ER,PR",
         "question_prototype": "Insulin demand forecasting",
     },
@@ -237,6 +256,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "answer_instruction": "Based on the data, predict the number of hours during the 12AM–6AM window when blood glucose will stay within a stable range (70-180 mg/dL). Return an integer value of number of hours where the blood glucose level is stable.",
         "answer_type": "int",
         "metric": "MAE",
+        "cognitive_level": "Pattern",
         "cognitive_atomic": "QC,ER,PR",
         "question_prototype": "Nocturnal BG forecasting",
     },
@@ -250,11 +270,13 @@ REQUIRED_METADATA_FIELDS = (
     "answer_instruction",
     "answer_type",
     "metric",
+    "cognitive_level",
     "cognitive_atomic",
     "question_prototype",
 )
 ALLOWED_METRICS = {"accuracy", "MAE"}
 ALLOWED_ANSWER_TYPES = {"string", "float", "int"}
+ALLOWED_COGNITIVE_LEVELS = {"Pattern", "Descriptive", "Memory"}
 
 
 def convert_np(value):
@@ -330,6 +352,7 @@ def build_qa(patient_index: int, question_index: int, answer, example_answer):
         "answer_instruction": metadata["answer_instruction"],
         "answer_type": metadata["answer_type"],
         "metric": metadata["metric"],
+        "cognitive_level": metadata["cognitive_level"],
         "cognitive_atomic": metadata["cognitive_atomic"],
         "question_prototype": metadata["question_prototype"],
         "example_answer": example_answer,
@@ -1004,6 +1027,11 @@ def validate_question_metadata():
         if metadata["answer_type"] not in ALLOWED_ANSWER_TYPES:
             errors.append(
                 f"Question {question_index} has invalid answer_type {metadata['answer_type']!r}; allowed: {sorted(ALLOWED_ANSWER_TYPES)}"
+            )
+
+        if metadata["cognitive_level"] not in ALLOWED_COGNITIVE_LEVELS:
+            errors.append(
+                f"Question {question_index} has invalid cognitive_level {metadata['cognitive_level']!r}; allowed: {sorted(ALLOWED_COGNITIVE_LEVELS)}"
             )
 
     if errors:
