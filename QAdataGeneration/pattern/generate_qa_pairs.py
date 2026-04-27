@@ -318,6 +318,9 @@ def generate_questions_and_answers(patient_data):
         "answer_type": "float",
         "metric": "MAE",
         "example_answer": 80.5,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Average Glucose Reading"
     })
    
     questions_and_answers.append({
@@ -327,7 +330,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Scan all glucose readings to identify the maximum value. Report it as a float rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE", 
-        "example_answer": 130.0
+        "example_answer": 130.0,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Maximum Glucose Reading"
     })
 
     questions_and_answers.append({
@@ -337,7 +343,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Scan all glucose readings to identify the minimum value. Report it as a float rounded to one decimal place",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 50.0
+        "example_answer": 50.0,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Minimum Glucose Reading"
     })
 
     questions_and_answers.append({
@@ -347,7 +356,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Scan all glucose readings to identify the maximum value. Locate the index of its first occurrence and multiply by 5 to convert to minutes, and report the corresponding minutes.",
         "answer_type": "int",
         "metric": "MAE",
-        "example_answer": 860
+        "example_answer": 860,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "QC,TR",
+        "question_prototype": "Time of Maximum"
     })
 
     questions_and_answers.append({
@@ -357,7 +369,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Count the number of glucose readings between 70 and 180 mg/dL (inclusive), multiply by 5 to get minutes, then convert to hours and round to one decimal.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 5.5
+        "example_answer": 5.5,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Time in Range"
+
     })
 
     questions_and_answers.append({
@@ -367,7 +383,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Identify all glucose readings strictly greater than 180 mg/dL (exclude 180), count the number of such readings, multiply by 5 to convert the count to minutes, then divide by 60 to convert to hours and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 5.5
+        "example_answer": 5.5,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Time Above Range"
+
     })
 
     questions_and_answers.append({
@@ -377,7 +397,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Identify all glucose readings strictly less than 70 mg/dL (exclude 70), count the number of such readings, multiply by 5 to convert the count to minutes, then divide by 60 to convert to hours and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 5.5
+        "example_answer": 5.5,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Time Below Range"
+
     })
 
     questions_and_answers.append({
@@ -387,7 +411,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Identify all glucose readings strictly less than 70 mg/dL (exclude 70), count the total number of such readings, and return this count as an integer.",
         "answer_type": "int",
         "metric": "MAE",
-        "example_answer": 3
+        "example_answer": 3,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Hypoglycemic Events"
+
     })
 
     questions_and_answers.append({
@@ -397,7 +425,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Identify all glucose readings strictly greater than 180 mg/dL (exclude 180), count the total number of such readings, and return this count as an integer.",
         "answer_type": "int",
         "metric": "MAE",
-        "example_answer": 3
+        "example_answer": 3,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Hyperglycemic Events"
+
     })
 
     questions_and_answers.append({
@@ -407,7 +439,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Return the standard deviation of glucose values, rounded to one decimal place",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 2.0
+        "example_answer": 2.0,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Standard Deviation"
     })
 
     questions_and_answers.append({
@@ -417,7 +452,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Calculate the proportion of glucose readings between 70 and 180 mg/dL (inclusive), multiply by 100 to get percentage, and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 36.0
+        "example_answer": 36.0,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Time in Range"
+
     })
 
     questions_and_answers.append({
@@ -427,7 +466,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Calculate the proportion of glucose readings strictly greater than 180 mg/dL (exclude 180) relative to the total number of readings, multiply by 100 to obtain the percentage, and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 38.0
+        "example_answer": 38.0,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Time Above Range"
+
     })
 
     questions_and_answers.append({
@@ -437,7 +480,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Calculate the proportion of glucose readings strictly less than 70 mg/dL (exclude 70) relative to the total number of readings, multiply by 100 to obtain the percentage, and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 40.0
+        "example_answer": 40.0,
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC",
+        "question_prototype": "Time Below Range"
+
     })
 
     questions_and_answers.append({
@@ -447,7 +494,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "For each pair of consecutive glucose readings, compute the rate of change by subtracting the earlier value from the later value and dividing by the time interval in minutes between the readings, take the absolute value of each rate, check whether any rate exceeds 2 mg/dL/min, and return 'Yes' if at least one does, otherwise return 'No'.",
         "answer_type": "categorical",
         "metric": "Accuracy",
-        "example_answer": "Yes"
+        "example_answer": "Yes",
+        "cognitive_level": "Descriptive",
+        "cognitive_atomic": "QC,CA",
+        "question_prototype": "Rapid Glucose Fluctuations"
+
     })
 
 
@@ -467,7 +518,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Extract glucose readings from 2-4 pm for {day_name}, compute the mean, and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 128.5
+        "example_answer": 128.5,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "QC,CA",
+        "question_prototype": "Average Glucose Reading"
+
     })
 
     # stable days
@@ -522,7 +577,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "For each day, calculate the coefficient of variation by dividing the standard deviation of that day’s glucose values by the mean glucose for that day and multiplying by 100, identify all days where this value is less than 36, and return their day indices using 1-based numbering as a list, e.g., [1, 3, 5].",
         "answer_type": "list",
         "metric": "F1",
-        "example_answer": [1, 3, 15, 27]
+        "example_answer": [1, 3, 15, 27],
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC,CA",
+        "question_prototype": "Stable Glucose Days"
+
     })
 
     questions_and_answers.append({
@@ -532,7 +591,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "For each day, calculate the coefficient of variation by dividing the standard deviation of that day’s glucose values by the mean glucose for that day and multiplying by 100, compare these daily values across all days, and return the 1-based day index of the day with the highest coefficient of variation.",
         "answer_type": "int",
         "metric": "Accuracy",
-        "example_answer": 4
+        "example_answer": 4,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC,CA",
+        "question_prototype": "Most Variable Glucose Day"
+
     })
 
     questions_and_answers.append({
@@ -542,7 +605,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "For each day, calculate the coefficient of variation by dividing the standard deviation of that day’s glucose values by the mean glucose for that day and multiplying by 100, compare these daily values across all days, and return the 1-based day index of the day with the lowest coefficient of variation.",
         "answer_type": "int", 
         "metric": "Accuracy",
-        "example_answer": 2
+        "example_answer": 2,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC,CA",
+        "question_prototype": "Most Stable Glucose Day"
     })
 
     # Comparison questions
@@ -553,7 +619,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "For each day, separate glucose readings into the 6am–12pm period and the 12pm–6pm period, calculate the standard deviation of glucose values for each period on each day, compute the average standard deviation across all days for each time period, and compare the two averages to determine which period shows greater glucose variability. Select one of the following options based on which period has higher glucose variability: 'morning', 'afternoon', or 'equal in both'.",
         "answer_type": "categorical",
         "metric": "Accuracy",
-        "example_answer": "morning"
+        "example_answer": "morning",
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC,CA",
+        "question_prototype": "Glucose Variability by Time"
+
     })
 
     questions_and_answers.append({
@@ -563,7 +633,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Select one of the following options based on which period has more stable glucose: 'weekdays', 'weekend', or 'equal in both'.",
         "answer_type": "categorical",
         "metric": "Accuracy", 
-        "example_answer": "weekdays"
+        "example_answer": "weekdays",
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC,CA",
+        "question_prototype": "Glucose Stability by Time"
     })
 
 
@@ -583,7 +656,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify the data corresponding to {day_name}, locate the lunch time for that day, select all glucose readings within the 3-hour window following lunch, find the maximum glucose value among those readings, and return it as a float rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 165.0
+        "example_answer": 165.0,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Postprandial Peak Glucose"
     })
 
     random_day = random.randint(1, 30)
@@ -600,7 +676,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the dinner time, record the baseline glucose as the value immediately before dinner, select all glucose readings within the 3-hour post-dinner window, find the peak glucose value and its timestamp within this window, then examine subsequent readings after the peak to find the first time point where glucose falls within ±10% of the baseline value, compute the time difference in minutes between the meal time (or peak time if specified) and this return time, and return this duration; if no such point exists within the 3-hour window, return None.",
         "answer_type": "int",
         "metric": "MAE",
-        "example_answer": 90
+        "example_answer": 90,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Postprandial Time to Baseline"    
     })
 
     random_day = random.randint(1, 30)
@@ -616,7 +695,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the times of breakfast, lunch, and dinner, for each meal record the baseline glucose as the value immediately before the meal, select glucose readings within the 3-hour post-meal window, compute the glucose rise as the difference between the maximum glucose value in the window and the baseline, compare the rises across the three meals, and return the meal name ('breakfast', 'lunch', or 'dinner') corresponding to the largest rise.",
         "answer_type": "categorical",
         "metric": "Accuracy",
-        "example_answer": "lunch"
+        "example_answer": "lunch",
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC,CA",
+        "question_prototype": "Postprandial Glucose Rise"    
     })
 
     random_day = random.randint(1, 30)
@@ -633,7 +715,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the morning snack time, record the baseline glucose as the value immediately before the snack, find the glucose value at 30 minutes after the snack, compute the rate of increase as (glucose at 30 minutes minus baseline) divided by 30 minutes, and return the result rounded to one decimal places.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 1.45
+        "example_answer": 1.45,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Postprandial Glucose Change Rate" 
     })
 
     heavy_dinner_days = []
@@ -652,7 +737,11 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Find days where the dinner meal has 80 or more carbs. For each such day, calculate the glucose rise within the 3-hour post-dinner window, defined as the difference between the peak glucose level and the baseline value (the glucose measurement immediately before dinner). Return the results as a list of tuples, where each tuple contains the day number (1–30) and the rise value rounded to one decimal place.",
         "answer_type": "list of tuples (int, float)",
         "metric": "F1",
-        "example_answer": [(1, 85.0), (12, 92.5), (21, 105.3)]
+        "example_answer": [(1, 85.0), (12, 92.5), (21, 105.3)],
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC,CA",
+        "question_prototype": "Postprandial Glucose Rise"         
+        
     })
 
     random_day = random.randint(1, 30)
@@ -669,7 +758,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the lunch time, select all glucose readings within the 3-hour post-lunch window, find the maximum glucose value among those readings, and return it as a float rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 165.0
+        "example_answer": 165.0,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Postprandial Glucose Peak"   
     })
     
 
@@ -689,7 +781,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during this exercise period, find the maximum glucose value among those readings, and return it as a float rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 125.5
+        "example_answer": 125.5,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Exercise Glucose Peak"  
     })
 
     random_day = random.randint(1, 30)
@@ -706,7 +801,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during this exercise period, find the minimum glucose value among those readings, and return it as a float rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 78.0
+        "example_answer": 78.0,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Exercise Lowest Glucose"          
     })
 
     random_day = random.randint(1, 30)
@@ -723,7 +821,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 180-minute window following the end of exercise, find the minimum glucose value among those readings, and return it as a float rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 85.2
+        "example_answer": 85.2,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Exercise Lowest Glucose"    
     })
 
     random_day = random.randint(1, 30)
@@ -740,7 +841,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the exercise session, record the baseline glucose as the value immediately before exercise starts, find the first glucose measurement at or after the exercise end time, compute the rate of change by subtracting the baseline value from this post-exercise glucose value and dividing by the elapsed time in minutes between the two measurements, and return the result rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 0.87
+        "example_answer": 0.87,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Exercise Glucose Change Rate"    
     })
 
     random_day = random.randint(1, 30)
@@ -757,7 +861,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the exercise session, record the pre-exercise baseline as the glucose value immediately before exercise starts, select all glucose readings within the 2-hour window after exercise ends, find the first reading in this window whose glucose value falls within ±10% of the baseline, calculate the time difference in minutes between the exercise end time and that reading, and return this duration; if no such reading occurs within the 2-hour window, return None.",
         "answer_type": "int",
         "metric": "MAE",
-        "example_answer": 75
+        "example_answer": 75,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Exercise Time to Baseline"   
     })
 
     random_day = random.randint(1, 30)
@@ -774,7 +881,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 1-hour window immediately following exercise end, calculate the average of those glucose values, and return the result as a float rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 112.5
+        "example_answer": 112.5,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Exercise Glucose Average"   
     })
 
     random_day = random.randint(1, 30)
@@ -791,7 +901,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during the exercise period, calculate the average of those glucose values, and return the result as a float rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 110.5
+        "example_answer": 110.5,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Exercise Glucose Average"   
     })
 
     random_day = random.randint(1, 30)
@@ -808,7 +921,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the exercise session, record the pre-exercise baseline as the glucose value immediately before exercise starts, select all glucose readings within the 2-hour window after exercise ends, find the minimum glucose value in that window, subtract this minimum value from the baseline value, and return the result as a float rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 35.0
+        "example_answer": 35.0,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Exercise Glucose Drop"   
     })
 
     random_day = random.randint(1, 30)
@@ -825,7 +941,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 2-hour window after exercise ends, find the minimum glucose value in that window and the first time it occurs, calculate the time difference in minutes between the exercise end time and that reading, and return the duration in minutes.",
         "answer_type": "int",
         "metric": "MAE",
-        "example_answer": 45
+        "example_answer": 45,
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC",
+        "question_prototype": "Exercise Glucose Drop"   
     })
 
     stable_days_after_exercise = []
@@ -842,7 +961,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Iterate over all days that contain an exercise session, for each day locate the end time of exercise, select all glucose readings within the 2-hour post-exercise window, calculate the coefficient of variation by dividing the standard deviation of those glucose values by their mean and multiplying by 100, identify the days where this value is less than 36, and return their 1-based day indices as a list.",
         "answer_type": "list of int",
         "metric": "F1",
-        "example_answer": [1, 3, 15, 28]
+        "example_answer": [1, 3, 15, 28],
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "ER,TR,QC,CA",
+        "question_prototype": "Exercise Glucose Stability"   
     })
 
     # week level questions
@@ -889,7 +1011,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Select all glucose readings from week {first_week} and count how many are strictly less than 70 mg/dL, convert that count to minutes of hypoglycemia, then do the same for week {second_week}, compare the total hypoglycemia minutes between the two weeks, and return 'yes' if week {first_week} has fewer hypoglycemia minutes than week {second_week}; otherwise return 'no'.",
         "answer_type": "categorical",
         "metric": "Accuracy",
-        "example_answer": "yes"
+        "example_answer": "yes",
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC,CA",
+        "question_prototype": "Hyperglycemia"   
     })
 
     first_week, second_week = random.sample(range(1, 5), 2)
@@ -901,7 +1026,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Collect all glucose readings from week {first_week} and calculate their coefficient of variation by dividing the standard deviation by the mean and multiplying by 100, repeat the same calculation for week {second_week}, compare the two CV values, and return {first_week} if week {first_week} has the lower coefficient of variation; otherwise return {second_week}.",
         "answer_type": "categorical",
         "metric": "Accuracy",
-        "example_answer": f"week {first_week}"
+        "example_answer": f"week {first_week}",
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC,CA",
+        "question_prototype": "Stability"   
     })
 
     first_week, second_week = random.sample(range(1, 5), 2)
@@ -917,7 +1045,10 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": "Collect all glucose readings from week {first_week} and calculate the percentage of readings that fall within the 70–180 mg/dL range. Repeat the same calculation for week {second_week}. Compare the two percentages and return 'increased' if the percentage for week {second_week} is higher, 'decreased' if it's lower, or 'no change' if they are equal.",
         "answer_type": "categorical",
         "metric": "Accuracy",
-        "example_answer": "increased"
+        "example_answer": "increased",
+        "cognitive_level": "Memory",
+        "cognitive_atomic": "TR,QC,CA",
+        "question_prototype": "Time in Range Change"   
     })
 
     return questions_and_answers
