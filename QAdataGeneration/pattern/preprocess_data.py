@@ -148,6 +148,8 @@ def preprocess_data(simulation_path, bg_path, insulin_csv_path, output_path, num
         simulation_data["carb_events"] = extract_carb_events(data, i)
 
         # Insulin
+        # OpenAPS controller write all insulin delivery in insulin_input.csv instead of simulation_settings
+        # Because the dose computed at run not in advance
         insulin_events = extract_insulin_events(data, i)
         if insulin_events:
             simulation_data["insulin_events"] = insulin_events # skip empty insulin events
@@ -185,11 +187,11 @@ def preprocess_data(simulation_path, bg_path, insulin_csv_path, output_path, num
 
 if __name__ == "__main__":
     for FOLDER_NAME in ["cycling", "running", "default"]:
-        BASE_PATH = os.path.join("SimulationResults", FOLDER_NAME)
+        BASE_PATH = os.path.join("../../SimulationResults", FOLDER_NAME)
         SIMULATION_PATH = os.path.join(BASE_PATH, "simulation_settings.json")
         BG_PATH = os.path.join(BASE_PATH, "model_state_results.xlsx")
         INSULIN_PATH = os.path.join(BASE_PATH, "insulin_input.csv")
-        OUTPUT_PATH = os.path.join("SimulationData", FOLDER_NAME)
+        OUTPUT_PATH = os.path.join("../../SimulationData", FOLDER_NAME)
         NUM_PEOPLE = 20
         
 
