@@ -38,6 +38,10 @@ def resample_input_field(data, field_name, sampling_minutes=5):
     return resampled
 
 def format_time_info(mins):
+    """
+    Convert absolute minute index into (day_index, HH:MM).
+    Day index starts at 1 and increases monotonically (no weekly reset).
+    """
     mins = float(mins)
     day = int(mins // 1440) + 1  # ← day 1 to 14, no weekly reset
     time_of_day = mins % 1440
@@ -58,7 +62,7 @@ def extract_carb_events(data, i):
         for idx, (carbs, t) in enumerate(zip(mags, times)):
             day, time_str = format_time_info(t)
             events.append({
-                "time": t,
+                "time": round(t,2),
                 "day": day,
                 "time_str": time_str,
                 "carbs": carbs,
@@ -73,7 +77,7 @@ def extract_carb_events(data, i):
         for idx, (carbs, t) in enumerate(zip(mags, times)):
             day, time_str = format_time_info(t)
             events.append({
-                "time": t,
+                "time": round(t,2),
                 "day": day,
                 "time_str": time_str,
                 "carbs": carbs,
@@ -117,22 +121,29 @@ def extract_exercise_events_combined(data, i):
                 continue  # skip zero magnitude events
             day, time_str = format_time_info(t)
             events.append({
-                "time": t,
+                "time": round(t,2),
                 "day": day,
                 "time_str": time_str,
-                "duration": d,
+                "duration": round(d,2),
                 "magnitude": mag,
                 "exercise_type": label,
             })
     events.sort(key=lambda x: x["time"])
     return events
 
-def extract_insulin_from_csv(csv_path):
+def extract_insulin_from_csv(csv_path, i):
     df = pd.read_csv(csv_path)
-    insulin_values = df.iloc[:,0].round(1).tolist()
-    return {"magnitude": insulin_values,}
+    insulin_values = df.iloc[:, i].round(2).tolist()
+    return {"magnitude": insulin_values}
 
 def preprocess_data(simulation_path, bg_path, insulin_csv_path, output_path, num_people, scenario_name):
+    """
+    Build `input_context` for each patient:
+        - carb_events
+        - exercise_events (if any)
+        - insulin_events (if csv present)
+        - bg_mgdl
+    """
     with open(simulation_path, "r") as f:
         data = json.load(f)
 
@@ -161,7 +172,7 @@ def preprocess_data(simulation_path, bg_path, insulin_csv_path, output_path, num
 
         # insulin mUmin
         if os.path.exists(insulin_csv_path):
-            simulation_data["insulin_mUmin"] = extract_insulin_from_csv(insulin_csv_path)
+            simulation_data["insulin_mUmin"] = extract_insulin_from_csv(insulin_csv_path, i)
         else:
             print(f"Warning: {scenario_name}_{i} has no insulin_input.csv")
             simulation_data["insulin_mUmin"] = []
@@ -179,7 +190,6 @@ def preprocess_data(simulation_path, bg_path, insulin_csv_path, output_path, num
             print(f"Error loading {sheet_name}: {e}")
             simulation_data["bg_mgdl"] = []
 
-
         os.makedirs(output_path, exist_ok=True)
         with open(os.path.join(output_path, f"Patient_{i}_simulation_data.jsonl"), "w") as f:
             f.write(json.dumps(simulation_data) + "\n")
@@ -187,11 +197,11 @@ def preprocess_data(simulation_path, bg_path, insulin_csv_path, output_path, num
 
 if __name__ == "__main__":
     for FOLDER_NAME in ["cycling", "running", "default"]:
-        BASE_PATH = os.path.join("../../SimulationResults", FOLDER_NAME)
+        BASE_PATH = os.path.join("../SimulationResults", FOLDER_NAME)
         SIMULATION_PATH = os.path.join(BASE_PATH, "simulation_settings.json")
         BG_PATH = os.path.join(BASE_PATH, "model_state_results.xlsx")
         INSULIN_PATH = os.path.join(BASE_PATH, "insulin_input.csv")
-        OUTPUT_PATH = os.path.join("../../SimulationData", FOLDER_NAME)
+        OUTPUT_PATH = os.path.join("../SimulationData", FOLDER_NAME)
         NUM_PEOPLE = 20
         
 

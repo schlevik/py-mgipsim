@@ -1,6 +1,6 @@
 import json
 import numpy as np
-from QAdataGeneration.pattern.preprocess_data import format_time_info
+from QAdataGeneration.preprocess_data import format_time_info
 import os
 import random
 
