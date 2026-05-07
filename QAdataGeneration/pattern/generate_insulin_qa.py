@@ -15,6 +15,7 @@ def generate_questions_and_answers(patient_data):
 
     bg_values = patient_data["bg_mgdl"]
     insulin_events = patient_data["insulin_events"]
+    
 
     # Blood glucose related calculations per day
     daily_bg = {}
