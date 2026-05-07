@@ -55,7 +55,7 @@ def generate_questions_and_answers(patient_data):
         # Store daily statistics
         daily_bg[f"day{day}"] = {
             "bg": day_bg_values,
-            "total_insulin": round(day_total_insulin, 2),
+            "total_insulin": round(day_total_insulin, 1),
             "largest_bolus_amount": largest_bolus_amount_day,
             "largest_bolus_time_minutes": largest_bolus_time_minutes_day,
         }
@@ -66,12 +66,12 @@ def generate_questions_and_answers(patient_data):
     # descriptive
     questions_and_answers.append({
         "question_text": "What was the patient's total insulin dose?",
-        "answer": float(round(total_insulin, 2)),
+        "answer": float(round(total_insulin, 1)),
         "answer_generation_rule": "Sum all insulin amounts from insulin events.",
         "answer_instruction": "Identify all insulin events across the full monitoring period, including both basal and bolus insulin events, sum all recorded insulin amounts, and return the total rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 634.00,
+        "example_answer": 634.0,
         "cognitive_level": "Descriptive",
         "cognitive_atomic": "QC",
         "question_prototype": "Insulin Dosage"   
@@ -99,7 +99,7 @@ def generate_questions_and_answers(patient_data):
     questions_and_answers.append({
         "question_text": f"What was the patient's total daily insulin dose on {day_name}?",
         "answer": float(daily_bg[day_key]["total_insulin"]),
-        "answer_generation_rule": f"Sum all basal and bolus insulin amounts recorded throughout {day_name}, rounded to 2 decimal places.",
+        "answer_generation_rule": f"Sum all basal and bolus insulin amounts recorded throughout {day_name}, rounded to 1 decimal place.",
         "answer_instruction": f"Identify all basal and bolus insulin events occurring on {day_name}, sum their insulin amounts, and return the total insulin dose for that day rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
@@ -146,8 +146,8 @@ def generate_questions_and_answers(patient_data):
                 weekend_count += 1
 
     if weekday_count > 0 and weekend_count > 0:
-        avg_weekday_insulin = round(weekday_insulin / weekday_count, 2)
-        avg_weekend_insulin = round(weekend_insulin / weekend_count, 2)
+        avg_weekday_insulin = round(weekday_insulin / weekday_count, 1)
+        avg_weekend_insulin = round(weekend_insulin / weekend_count, 1)
 
         questions_and_answers.append({
             "question_text": "Does the patient use more insulin on weekends in the first week?",
