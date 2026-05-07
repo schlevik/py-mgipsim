@@ -711,7 +711,7 @@ def generate_questions_and_answers(patient_data):
         "answer_instruction": f"Identify {day_name} and locate the morning snack time, record the baseline glucose as the value immediately before the snack, find the glucose value at 30 minutes after the snack, compute the rate of increase as (glucose at 30 minutes minus baseline) divided by 30 minutes, and return the result rounded to one decimal places.",
         "answer_type": "float",
         "metric": "MAE",
-        "example_answer": 1.45,
+        "example_answer": 1.4,
         "cognitive_level": "Memory",
         "cognitive_atomic": "ER,TR,QC",
         "question_prototype": "Postprandial Glucose Change Rate" 
