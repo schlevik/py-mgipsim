@@ -7,7 +7,7 @@ def generate_questions_and_answers(patient_data):
     """Generate questions and calculate ground truth answers."""
 
     bg_values = patient_data["bg_mgdl"]
-    insulin_events = patient_data["insulin_events"]
+    insulin_events = patient_data.get("insulin_events", [])
     
 
     # Blood glucose related calculations per day
@@ -16,10 +16,13 @@ def generate_questions_and_answers(patient_data):
     num_days = len(bg_values) // samples_per_day
 
     # overall statistics
-    total_insulin = sum(event["dosage"] for event in insulin_events)
+    total_insulin = sum(event.get("dosage", 0) for event in insulin_events)
 
     # Find largest bolus across all days
-    bolus_events = [event for event in insulin_events if event["insulin_type"] == "bolus_insulin"]
+    bolus_events = [
+        event for event in insulin_events
+        if event.get("insulin_type") == "bolus_insulin" and "dosage" in event
+    ]
     if bolus_events:
         largest_bolus = max(bolus_events, key=lambda x: x["dosage"])
         largest_bolus_time_minutes = largest_bolus["time"]  # Use timestamp in minutes
@@ -28,7 +31,7 @@ def generate_questions_and_answers(patient_data):
         largest_bolus_time_minutes = None
         largest_bolus_amount = None
 
-    basal_events = [event for event in insulin_events if event["insulin_type"] == "basal_insulin"]
+    basal_events = [event for event in insulin_events if event.get("insulin_type") == "basal_insulin"]
 
     # Insulin events for each day
 
@@ -43,12 +46,15 @@ def generate_questions_and_answers(patient_data):
             continue
 
         day_insulin_events = [
-            event for event in insulin_events if event["day"] == day
+            event for event in insulin_events if event.get("day") == day
         ]
-        day_total_insulin = sum(event["dosage"] for event in day_insulin_events)
+        day_total_insulin = sum(event.get("dosage", 0) for event in day_insulin_events)
 
-        boluses = [e for e in day_insulin_events if e["insulin_type"] == "bolus_insulin"]
-        largest_bolus_event = max(boluses, key=lambda x: x["dosage"], default=None)
+        boluses = [
+            e for e in day_insulin_events
+            if e.get("insulin_type") == "bolus_insulin" and "dosage" in e
+        ]
+        largest_bolus_event = max(boluses, key=lambda x: x.get("dosage", 0), default=None)
         largest_bolus_amount_day = largest_bolus_event["dosage"] if largest_bolus_event else None
         largest_bolus_time_minutes_day = largest_bolus_event["time"] if largest_bolus_event else None
 
@@ -92,40 +98,43 @@ def generate_questions_and_answers(patient_data):
         })
 
     # memory/temporal
-    random_day = random.randint(1, min(30, num_days))
-    day_key = f"day{random_day}"
-    day_name = f"day {random_day}"
+    if num_days > 0:
+        random_day = random.randint(1, min(30, num_days))
+        day_key = f"day{random_day}"
+        day_name = f"day {random_day}"
 
-    questions_and_answers.append({
-        "question_text": f"What was the patient's total daily insulin dose on {day_name}?",
-        "answer": float(daily_bg[day_key]["total_insulin"]),
-        "answer_generation_rule": f"Sum all basal and bolus insulin amounts recorded throughout {day_name}, rounded to 1 decimal place.",
-        "answer_instruction": f"Identify all basal and bolus insulin events occurring on {day_name}, sum their insulin amounts, and return the total insulin dose for that day rounded to one decimal place.",
-        "answer_type": "float",
-        "metric": "MAE",
-        "example_answer": 34.0,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "TR,QC",
-        "question_prototype": "Insulin Dosage"   
-    })
+        if day_key in daily_bg:
+            questions_and_answers.append({
+                "question_text": f"What was the patient's total daily insulin dose on {day_name}?",
+                "answer": float(daily_bg[day_key]["total_insulin"]),
+                "answer_generation_rule": f"Sum all basal and bolus insulin amounts recorded throughout {day_name}, rounded to 1 decimal place.",
+                "answer_instruction": f"Identify all basal and bolus insulin events occurring on {day_name}, sum their insulin amounts, and return the total insulin dose for that day rounded to one decimal place.",
+                "answer_type": "float",
+                "metric": "MAE",
+                "example_answer": 34.0,
+                "cognitive_level": "Memory",
+                "cognitive_atomic": "TR,QC",
+                "question_prototype": "Insulin Dosage"   
+            })
 
-    random_day = random.randint(1, min(30, num_days))
-    day_key = f"day{random_day}"
-    day_name = f"day {random_day}"
+    if num_days > 0:
+        random_day = random.randint(1, min(30, num_days))
+        day_key = f"day{random_day}"
+        day_name = f"day {random_day}"
 
-    if daily_bg[day_key]["largest_bolus_time_minutes"] is not None:
-        questions_and_answers.append({
-            "question_text": f"When did the patient receive their largest insulin bolus on {day_name}?",
-            "answer": int(daily_bg[day_key]["largest_bolus_time_minutes"]),
-            "answer_generation_rule": f"Find the insulin bolus event with the highest insulin amount on {day_name} and return its timestamp.",
-            "answer_instruction": f"Identify all insulin bolus events that occur on {day_name}, find the bolus with the largest insulin amount, determine its timestamp, convert that timestamp to minutes elapsed since the start of the dataset at week 1 day 1 00:00, and return that value.",
-            "answer_type": "int",
-            "metric": "MAE",
-            "example_answer": 465,
-            "cognitive_level": "Memory",
-            "cognitive_atomic": "TR,QC",
-            "question_prototype": "Largest Insulin Dosage"   
-        })
+        if day_key in daily_bg and daily_bg[day_key]["largest_bolus_time_minutes"] is not None:
+            questions_and_answers.append({
+                "question_text": f"When did the patient receive their largest insulin bolus on {day_name}?",
+                "answer": int(daily_bg[day_key]["largest_bolus_time_minutes"]),
+                "answer_generation_rule": f"Find the insulin bolus event with the highest insulin amount on {day_name} and return its timestamp.",
+                "answer_instruction": f"Identify all insulin bolus events that occur on {day_name}, find the bolus with the largest insulin amount, determine its timestamp, convert that timestamp to minutes elapsed since the start of the dataset at week 1 day 1 00:00, and return that value.",
+                "answer_type": "int",
+                "metric": "MAE",
+                "example_answer": 465,
+                "cognitive_level": "Memory",
+                "cognitive_atomic": "TR,QC",
+                "question_prototype": "Largest Insulin Dosage"   
+            })
 
     # Calculate weekday vs weekend insulin usage for first week only
     weekday_insulin = 0.0
