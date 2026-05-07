@@ -108,6 +108,60 @@ def extract_insulin_events(data, i):
     events.sort(key=lambda x: x["time"])
     return events
 
+
+def extract_insulin_events_from_csv(csv_path, i):
+    df = pd.read_csv(csv_path)
+    delivery_list = df.iloc[:, i].round(2).tolist()
+    events = []
+    # Keep track of the last known basal to subtract from bolus spikes
+    last_basal = 0.0
+
+    for i, total_dosage in enumerate(delivery_list):
+        if total_dosage == 0:
+            continue
+
+        # Calculate time based on (index + 1) * 5
+        t = (i + 1) * 5
+        day, time_str = format_time_info(t)
+
+        # Check if this is a bolus event (dosage spike > 100)
+        if total_dosage - last_basal > 100:
+            current_basal = last_basal
+            current_bolus = round(total_dosage - current_basal, 1)
+
+            # Add Bolus Event
+            events.append({
+                "time": t,
+                "day": day,
+                "time_str": time_str,
+                "dosage": current_bolus,
+                "insulin_type": "bolus_insulin"
+            })
+
+            # Add Basal Event (at the same time)
+            if current_basal > 0:
+                events.append({
+                    "time": t,
+                    "day": day,
+                    "time_str": time_str,
+                    "dosage": current_basal,
+                    "insulin_type": "basal_insulin"
+                })
+        else:
+            # Normal basal delivery
+            last_basal = round(total_dosage, 1)
+            events.append({
+                "time": t,
+                "day": day,
+                "time_str": time_str,
+                "dosage": last_basal,
+                "insulin_type": "basal_insulin"
+            })
+
+    # Sort primarily by time, secondarily by type if you want a specific order
+    events.sort(key=lambda x: (x["time"], x["insulin_type"]))
+    return events
+
 def extract_exercise_events_combined(data, i):
     events = []
     for source, label in [("running_speed", "running"), ("cycling_power", "cycling")]:
@@ -164,11 +218,14 @@ def preprocess_data(simulation_path, bg_path, insulin_csv_path, output_path, num
         insulin_events = extract_insulin_events(data, i)
         if insulin_events:
             simulation_data["insulin_events"] = insulin_events # skip empty insulin events
+        else:
+            simulation_data["insulin_events"] = extract_insulin_events_from_csv(insulin_csv_path, i)
 
         # Exercise
         exercise_events = extract_exercise_events_combined(data, i)
         if exercise_events:
             simulation_data["exercise_events"] = exercise_events
+
 
         # insulin mUmin
         if os.path.exists(insulin_csv_path):
