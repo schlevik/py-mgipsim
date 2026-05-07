@@ -336,7 +336,7 @@ def build_prediction_scenario(
     bundled_insulin_csv_name: str,
     patient_count: int,
 ) -> None:
-    from preprocess_data import preprocess_data
+    from QAdataGeneration.preprocess_data import preprocess_data
     from pymgipsim.generate_inputs import generate_inputs_main
     from pymgipsim.generate_results import generate_results_main
 

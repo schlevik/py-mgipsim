@@ -26,6 +26,7 @@ import logging
 import os
 import random
 from typing import Any, Dict, List, Tuple, Optional
+from QAdataGeneration.preprocess_data import format_time_info, extract_exercise_events_combined, extract_carb_events, extract_insulin_from_csv
 
 import numpy as np
 import pandas as pd
@@ -120,78 +121,78 @@ def generate_example_answer(answer_type: str) -> Any:
     return None
 
 
-def format_time_info(mins: float) -> Tuple[int, str]:
-    """
-    Convert absolute minute index into (day_index, HH:MM).
-    Day index starts at 1 and increases monotonically (no weekly reset).
-    """
-    mins = float(mins)
-    day = int(mins // 1440) + 1
-    time_of_day = mins % 1440
-    hours = int(time_of_day // 60)
-    minutes = int(time_of_day % 60)
-    return day, f"{hours:02d}:{minutes:02d}"
+# def format_time_info(mins: float) -> Tuple[int, str]:
+#     """
+#     Convert absolute minute index into (day_index, HH:MM).
+#     Day index starts at 1 and increases monotonically (no weekly reset).
+#     """
+#     mins = float(mins)
+#     day = int(mins // 1440) + 1
+#     time_of_day = mins % 1440
+#     hours = int(time_of_day // 60)
+#     minutes = int(time_of_day % 60)
+#     return day, f"{hours:02d}:{minutes:02d}"
 
 
 # ------------------------- Input Extraction (Step 1) -------------------------
 
-def extract_carb_events(payload: Dict[str, Any], person_idx: int) -> List[Dict[str, Any]]:
-    events: List[Dict[str, Any]] = []
-
-    if "meal_carb" in payload["inputs"]:
-        mags = payload["inputs"]["meal_carb"]["magnitude"][person_idx]
-        times = payload["inputs"]["meal_carb"]["start_time"][person_idx]
-        meal_types = ["breakfast", "lunch", "dinner"]
-        for idx, (carbs, t) in enumerate(zip(mags, times)):
-            day, time_str = format_time_info(t)
-            events.append({
-                "time": t, "day": day, "time_str": time_str,
-                "carbs": carbs, "meal_type": meal_types[idx % 3]
-            })
-
-    if "snack_carb" in payload["inputs"]:
-        mags = payload["inputs"]["snack_carb"]["magnitude"][person_idx]
-        times = payload["inputs"]["snack_carb"]["start_time"][person_idx]
-        snack_types = ["morning_snack", "afternoon_snack"]
-        for idx, (carbs, t) in enumerate(zip(mags, times)):
-            t = round(t,3)
-            carbs = round(carbs,3)
-            day, time_str = format_time_info(t)
-            events.append({
-                "time": t, "day": day, "time_str": time_str,
-                "carbs": carbs, "meal_type": snack_types[idx % 2]
-            })
-
-    events.sort(key=lambda x: x["time"])
-    return events
-
-
-def extract_exercise_events(payload: Dict[str, Any], person_idx: int) -> List[Dict[str, Any]]:
-    events: List[Dict[str, Any]] = []
-    for source, label in [("running_speed", "running"), ("cycling_power", "cycling")]:
-        if source not in payload["inputs"]:
-            continue
-        magnitudes = payload["inputs"][source]["magnitude"][person_idx]
-        start_times = payload["inputs"][source]["start_time"][person_idx]
-        durations = payload["inputs"][source]["duration"][person_idx]
-        for mag, t, d in zip(magnitudes, start_times, durations):
-            mag = round(mag,3)
-            t = round(t,3)
-            d = round(d,3)
-            if mag == 0:
-                continue
-            day, time_str = format_time_info(t)
-            events.append({
-                "time": t, "day": day, "time_str": time_str,
-                "duration": d, "magnitude": mag, "exercise_type": label
-            })
-    events.sort(key=lambda x: x["time"])
-    return events
-
-
-def extract_insulin_from_csv(csv_path: str, person_idx: int) -> Dict[str, Any]:
-    df = pd.read_csv(csv_path)
-    return {"magnitude": df.iloc[:, person_idx].round(3).tolist()}
+# def extract_carb_events(payload: Dict[str, Any], person_idx: int) -> List[Dict[str, Any]]:
+#     events: List[Dict[str, Any]] = []
+#
+#     if "meal_carb" in payload["inputs"]:
+#         mags = payload["inputs"]["meal_carb"]["magnitude"][person_idx]
+#         times = payload["inputs"]["meal_carb"]["start_time"][person_idx]
+#         meal_types = ["breakfast", "lunch", "dinner"]
+#         for idx, (carbs, t) in enumerate(zip(mags, times)):
+#             day, time_str = format_time_info(t)
+#             events.append({
+#                 "time": t, "day": day, "time_str": time_str,
+#                 "carbs": carbs, "meal_type": meal_types[idx % 3]
+#             })
+#
+#     if "snack_carb" in payload["inputs"]:
+#         mags = payload["inputs"]["snack_carb"]["magnitude"][person_idx]
+#         times = payload["inputs"]["snack_carb"]["start_time"][person_idx]
+#         snack_types = ["morning_snack", "afternoon_snack"]
+#         for idx, (carbs, t) in enumerate(zip(mags, times)):
+#             t = round(t,3)
+#             carbs = round(carbs,3)
+#             day, time_str = format_time_info(t)
+#             events.append({
+#                 "time": t, "day": day, "time_str": time_str,
+#                 "carbs": carbs, "meal_type": snack_types[idx % 2]
+#             })
+#
+#     events.sort(key=lambda x: x["time"])
+#     return events
+#
+#
+# def extract_exercise_events(payload: Dict[str, Any], person_idx: int) -> List[Dict[str, Any]]:
+#     events: List[Dict[str, Any]] = []
+#     for source, label in [("running_speed", "running"), ("cycling_power", "cycling")]:
+#         if source not in payload["inputs"]:
+#             continue
+#         magnitudes = payload["inputs"][source]["magnitude"][person_idx]
+#         start_times = payload["inputs"][source]["start_time"][person_idx]
+#         durations = payload["inputs"][source]["duration"][person_idx]
+#         for mag, t, d in zip(magnitudes, start_times, durations):
+#             mag = round(mag,3)
+#             t = round(t,3)
+#             d = round(d,3)
+#             if mag == 0:
+#                 continue
+#             day, time_str = format_time_info(t)
+#             events.append({
+#                 "time": t, "day": day, "time_str": time_str,
+#                 "duration": d, "magnitude": mag, "exercise_type": label
+#             })
+#     events.sort(key=lambda x: x["time"])
+#     return events
+#
+#
+# def extract_insulin_from_csv(csv_path: str, person_idx: int) -> Dict[str, Any]:
+#     df = pd.read_csv(csv_path)
+#     return {"magnitude": df.iloc[:, person_idx].round(3).tolist()}
 
 
 def load_bg_df(xlsx_path: str, sheet_name: str = "Patient_0") -> pd.DataFrame:
@@ -231,7 +232,7 @@ def build_input_context_for_patient(base_dir: str, patient_id: str) -> Dict[str,
 
     input_context["carb_events"] = extract_carb_events(payload, p_id)
 
-    exercise_events = extract_exercise_events(payload, p_id)
+    exercise_events = extract_exercise_events_combined(payload, p_id)
 
     if exercise_events:
         input_context["exercise_events"] = exercise_events

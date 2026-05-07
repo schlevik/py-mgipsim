@@ -38,6 +38,10 @@ def resample_input_field(data, field_name, sampling_minutes=5):
     return resampled
 
 def format_time_info(mins):
+    """
+    Convert absolute minute index into (day_index, HH:MM).
+    Day index starts at 1 and increases monotonically (no weekly reset).
+    """
     mins = float(mins)
     day = int(mins // 1440) + 1  # ← day 1 to 14, no weekly reset
     time_of_day = mins % 1440
@@ -58,7 +62,7 @@ def extract_carb_events(data, i):
         for idx, (carbs, t) in enumerate(zip(mags, times)):
             day, time_str = format_time_info(t)
             events.append({
-                "time": t,
+                "time": round(t,2),
                 "day": day,
                 "time_str": time_str,
                 "carbs": carbs,
@@ -73,7 +77,7 @@ def extract_carb_events(data, i):
         for idx, (carbs, t) in enumerate(zip(mags, times)):
             day, time_str = format_time_info(t)
             events.append({
-                "time": t,
+                "time": round(t,2),
                 "day": day,
                 "time_str": time_str,
                 "carbs": carbs,
@@ -104,6 +108,60 @@ def extract_insulin_events(data, i):
     events.sort(key=lambda x: x["time"])
     return events
 
+
+def extract_insulin_events_from_csv(csv_path, i):
+    df = pd.read_csv(csv_path)
+    delivery_list = df.iloc[:, i].round(2).tolist()
+    events = []
+    # Keep track of the last known basal to subtract from bolus spikes
+    last_basal = 0.0
+
+    for i, total_dosage in enumerate(delivery_list):
+        if total_dosage == 0:
+            continue
+
+        # Calculate time based on (index + 1) * 5
+        t = (i + 1) * 5
+        day, time_str = format_time_info(t)
+
+        # Check if this is a bolus event (dosage spike > 100)
+        if total_dosage - last_basal > 100:
+            current_basal = last_basal
+            current_bolus = round(total_dosage - current_basal, 1)
+
+            # Add Bolus Event
+            events.append({
+                "time": t,
+                "day": day,
+                "time_str": time_str,
+                "dosage": current_bolus,
+                "insulin_type": "bolus_insulin"
+            })
+
+            # Add Basal Event (at the same time)
+            if current_basal > 0:
+                events.append({
+                    "time": t,
+                    "day": day,
+                    "time_str": time_str,
+                    "dosage": current_basal,
+                    "insulin_type": "basal_insulin"
+                })
+        else:
+            # Normal basal delivery
+            last_basal = round(total_dosage, 1)
+            events.append({
+                "time": t,
+                "day": day,
+                "time_str": time_str,
+                "dosage": last_basal,
+                "insulin_type": "basal_insulin"
+            })
+
+    # Sort primarily by time, secondarily by type if you want a specific order
+    events.sort(key=lambda x: (x["time"], x["insulin_type"]))
+    return events
+
 def extract_exercise_events_combined(data, i):
     events = []
     for source, label in [("running_speed", "running"), ("cycling_power", "cycling")]:
@@ -117,22 +175,29 @@ def extract_exercise_events_combined(data, i):
                 continue  # skip zero magnitude events
             day, time_str = format_time_info(t)
             events.append({
-                "time": t,
+                "time": round(t,2),
                 "day": day,
                 "time_str": time_str,
-                "duration": d,
+                "duration": round(d,2),
                 "magnitude": mag,
                 "exercise_type": label,
             })
     events.sort(key=lambda x: x["time"])
     return events
 
-def extract_insulin_from_csv(csv_path):
+def extract_insulin_from_csv(csv_path, i):
     df = pd.read_csv(csv_path)
-    insulin_values = df.iloc[:,0].round(1).tolist()
-    return {"magnitude": insulin_values,}
+    insulin_values = df.iloc[:, i].round(2).tolist()
+    return {"magnitude": insulin_values}
 
 def preprocess_data(simulation_path, bg_path, insulin_csv_path, output_path, num_people, scenario_name):
+    """
+    Build `input_context` for each patient:
+        - carb_events
+        - exercise_events (if any)
+        - insulin_events (if csv present)
+        - bg_mgdl
+    """
     with open(simulation_path, "r") as f:
         data = json.load(f)
 
@@ -148,18 +213,23 @@ def preprocess_data(simulation_path, bg_path, insulin_csv_path, output_path, num
         simulation_data["carb_events"] = extract_carb_events(data, i)
 
         # Insulin
+        # OpenAPS controller write all insulin delivery in insulin_input.csv instead of simulation_settings
+        # Because the dose computed at run not in advance
         insulin_events = extract_insulin_events(data, i)
         if insulin_events:
             simulation_data["insulin_events"] = insulin_events # skip empty insulin events
+        else:
+            simulation_data["insulin_events"] = extract_insulin_events_from_csv(insulin_csv_path, i)
 
         # Exercise
         exercise_events = extract_exercise_events_combined(data, i)
         if exercise_events:
             simulation_data["exercise_events"] = exercise_events
 
+
         # insulin mUmin
         if os.path.exists(insulin_csv_path):
-            simulation_data["insulin_mUmin"] = extract_insulin_from_csv(insulin_csv_path)
+            simulation_data["insulin_mUmin"] = extract_insulin_from_csv(insulin_csv_path, i)
         else:
             print(f"Warning: {scenario_name}_{i} has no insulin_input.csv")
             simulation_data["insulin_mUmin"] = []
@@ -177,7 +247,6 @@ def preprocess_data(simulation_path, bg_path, insulin_csv_path, output_path, num
             print(f"Error loading {sheet_name}: {e}")
             simulation_data["bg_mgdl"] = []
 
-
         os.makedirs(output_path, exist_ok=True)
         with open(os.path.join(output_path, f"Patient_{i}_simulation_data.jsonl"), "w") as f:
             f.write(json.dumps(simulation_data) + "\n")
@@ -185,11 +254,11 @@ def preprocess_data(simulation_path, bg_path, insulin_csv_path, output_path, num
 
 if __name__ == "__main__":
     for FOLDER_NAME in ["cycling", "running", "default"]:
-        BASE_PATH = os.path.join("SimulationResults", FOLDER_NAME)
+        BASE_PATH = os.path.join("../SimulationResults", FOLDER_NAME)
         SIMULATION_PATH = os.path.join(BASE_PATH, "simulation_settings.json")
         BG_PATH = os.path.join(BASE_PATH, "model_state_results.xlsx")
         INSULIN_PATH = os.path.join(BASE_PATH, "insulin_input.csv")
-        OUTPUT_PATH = os.path.join("SimulationData", FOLDER_NAME)
+        OUTPUT_PATH = os.path.join("../SimulationData", FOLDER_NAME)
         NUM_PEOPLE = 20
         
 

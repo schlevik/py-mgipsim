@@ -1,12 +1,7 @@
 import json
 import numpy as np
-from datetime import datetime
-from datetime import timedelta
-from preprocess_data import preprocess_data as prepdata
-from preprocess_data import format_time_info
-import fire
+from QAdataGeneration.preprocess_data import format_time_info
 import os
-import re
 import random
 
 
@@ -73,6 +68,7 @@ def generate_questions_and_answers(patient_data):
     daily_bg = {}
     samples_per_day = 24 * 12  # 288 samples per day (every 5 minutes)
     num_days = len(bg_values) // samples_per_day
+    num_weeks = num_days // 7
 
     morning_sds = []
     afternoon_sds = []
@@ -504,7 +500,7 @@ def generate_questions_and_answers(patient_data):
 
     ########## Daily Statistics #############
     # Basic Statistics questions
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -642,7 +638,7 @@ def generate_questions_and_answers(patient_data):
 
     # Meal-related questions
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -662,7 +658,7 @@ def generate_questions_and_answers(patient_data):
         "question_prototype": "Postprandial Peak Glucose"
     })
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -682,7 +678,7 @@ def generate_questions_and_answers(patient_data):
         "question_prototype": "Postprandial Time to Baseline"    
     })
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -701,7 +697,7 @@ def generate_questions_and_answers(patient_data):
         "question_prototype": "Postprandial Glucose Rise"    
     })
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -744,7 +740,7 @@ def generate_questions_and_answers(patient_data):
         
     })
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -767,7 +763,7 @@ def generate_questions_and_answers(patient_data):
 
     # Activity-related questions
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -787,7 +783,7 @@ def generate_questions_and_answers(patient_data):
         "question_prototype": "Exercise Glucose Peak"  
     })
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -807,7 +803,7 @@ def generate_questions_and_answers(patient_data):
         "question_prototype": "Exercise Lowest Glucose"          
     })
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -827,7 +823,7 @@ def generate_questions_and_answers(patient_data):
         "question_prototype": "Exercise Lowest Glucose"    
     })
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -847,7 +843,7 @@ def generate_questions_and_answers(patient_data):
         "question_prototype": "Exercise Glucose Change Rate"    
     })
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -867,7 +863,7 @@ def generate_questions_and_answers(patient_data):
         "question_prototype": "Exercise Time to Baseline"   
     })
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -887,7 +883,7 @@ def generate_questions_and_answers(patient_data):
         "question_prototype": "Exercise Glucose Average"   
     })
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -907,7 +903,7 @@ def generate_questions_and_answers(patient_data):
         "question_prototype": "Exercise Glucose Average"   
     })
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -927,7 +923,7 @@ def generate_questions_and_answers(patient_data):
         "question_prototype": "Exercise Glucose Drop"   
     })
 
-    random_day = random.randint(1, 30)
+    random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
     
     week = (random_day - 1) // 7 + 1
@@ -973,11 +969,6 @@ def generate_questions_and_answers(patient_data):
     readings_per_day = 288
     readings_per_week = readings_per_day * 7
 
-    week1_bg = bg_values[:readings_per_week]
-    week2_bg = bg_values[readings_per_week:readings_per_week * 2]
-    week3_bg = bg_values[readings_per_week * 2:readings_per_week * 3]
-    week4_bg = bg_values[readings_per_week * 3:readings_per_week * 4]
-
     def get_metrics(week_bg):
         week_array = np.array(week_bg)
         mean = np.mean(week_array)
@@ -996,60 +987,72 @@ def generate_questions_and_answers(patient_data):
             "hypoglycemia_minutes": int(hypoglycemia_time_min),
             "hyperglycemia_minutes": int(hyperglycemia_time_min),
         }
-    
-    week1_stats = get_metrics(week1_bg)
-    week2_stats = get_metrics(week2_bg)
-    week3_stats = get_metrics(week3_bg)
-    week4_stats = get_metrics(week4_bg)
 
-    first_week, second_week = random.sample(range(1, 5), 2)
+    all_weeks_stats = []
+    for i in range(num_weeks):
+        start_idx = i * readings_per_week
+        end_idx = (i + 1) * readings_per_week
+        week_data = bg_values[start_idx:end_idx]
+        all_weeks_stats.append(get_metrics(week_data))
 
-    questions_and_answers.append({
-        "question_text": f"Did the patient spend less time in hypoglycemia in week {first_week} than in week {second_week}?",
-        "answer": "yes" if eval(f"week{first_week}_stats['hypoglycemia_minutes']") < eval(f"week{second_week}_stats['hypoglycemia_minutes']") else "no",
-        "answer_generation_rule": f"Sum minutes with glucose < 70 mg/dL in week {first_week} and week {second_week}, then compare.",
-        "answer_instruction": f"Select all glucose readings from week {first_week} and count how many are strictly less than 70 mg/dL, convert that count to minutes of hypoglycemia, then do the same for week {second_week}, compare the total hypoglycemia minutes between the two weeks, and return 'yes' if week {first_week} has fewer hypoglycemia minutes than week {second_week}; otherwise return 'no'.",
-        "answer_type": "categorical",
-        "metric": "Accuracy",
-        "example_answer": "yes",
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "TR,QC,CA",
-        "question_prototype": "Hyperglycemia"   
-    })
+    if num_weeks >= 2:
+        first_week_idx, second_week_idx = random.sample(range(num_weeks), 2)
+        first_week, second_week = first_week_idx + 1, second_week_idx + 1
+        stats_a = all_weeks_stats[first_week_idx]
+        stats_b = all_weeks_stats[second_week_idx]
 
-    first_week, second_week = random.sample(range(1, 5), 2)
+        questions_and_answers.append({
+            "question_text": f"Did the patient spend less time in hypoglycemia in week {first_week} than in week {second_week}?",
+            "answer": "yes" if stats_a['hypoglycemia_minutes'] < stats_b['hypoglycemia_minutes'] else "no",
+            "answer_generation_rule": f"Sum minutes with glucose < 70 mg/dL in week {first_week} and week {second_week}, then compare.",
+            "answer_instruction": f"Select all glucose readings from week {first_week} and count how many are strictly less than 70 mg/dL, convert that count to minutes of hypoglycemia, then do the same for week {second_week}, compare the total hypoglycemia minutes between the two weeks, and return 'yes' if week {first_week} has fewer hypoglycemia minutes than week {second_week}; otherwise return 'no'.",
+            "answer_type": "categorical",
+            "metric": "Accuracy",
+            "example_answer": "yes",
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "TR,QC,CA",
+            "question_prototype": "Hyperglycemia"
+        })
 
-    questions_and_answers.append({
-        "question_text": f"Which week had more stable blood glucose: week {first_week} or week {second_week}?",
-        "answer": f"week {first_week}" if eval(f"week{first_week}_stats['cv']") < eval(f"week{second_week}_stats['cv']") else f"week {second_week}",
-        "answer_generation_rule": f"Compare CV (SD/mean) of glucose readings from week {first_week} and week {second_week}.",
-        "answer_instruction": f"Collect all glucose readings from week {first_week} and calculate their coefficient of variation by dividing the standard deviation by the mean and multiplying by 100, repeat the same calculation for week {second_week}, compare the two CV values, and return {first_week} if week {first_week} has the lower coefficient of variation; otherwise return {second_week}.",
-        "answer_type": "categorical",
-        "metric": "Accuracy",
-        "example_answer": f"week {first_week}",
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "TR,QC,CA",
-        "question_prototype": "Stability"   
-    })
+        first_week_idx, second_week_idx = random.sample(range(num_weeks), 2)
+        first_week, second_week = first_week_idx + 1, second_week_idx + 1
+        stats_a = all_weeks_stats[first_week_idx]
+        stats_b = all_weeks_stats[second_week_idx]
 
-    first_week, second_week = random.sample(range(1, 5), 2)
+        questions_and_answers.append({
+            "question_text": f"Which week had more stable blood glucose: week {first_week} or week {second_week}?",
+            "answer": f"week {first_week}" if stats_a['cv'] < stats_b['cv'] else f"week {second_week}",
+            "answer_generation_rule": f"Compare CV (SD/mean) of glucose readings from week {first_week} and week {second_week}.",
+            "answer_instruction": f"Collect all glucose readings from week {first_week} and calculate their coefficient of variation by dividing the standard deviation by the mean and multiplying by 100, repeat the same calculation for week {second_week}, compare the two CV values, and return {first_week} if week {first_week} has the lower coefficient of variation; otherwise return {second_week}.",
+            "answer_type": "categorical",
+            "metric": "Accuracy",
+            "example_answer": f"week {first_week}",
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "TR,QC,CA",
+            "question_prototype": "Stability"
+        })
 
-    questions_and_answers.append({
-        "question_text": f"How did the patient's time in range change from week {first_week} to week {second_week}?",
-        "answer": (
-            "increased" if eval(f"week{second_week}_stats['tir_percent']") > eval(f"week{first_week}_stats['tir_percent']")
-            else "decreased" if eval(f"week{second_week}_stats['tir_percent']") < eval(f"week{first_week}_stats['tir_percent']")
-            else "no change"
-        ),
-        "answer_generation_rule": f"Compare % of readings in 70–180 mg/dL range between week {first_week} and week {second_week}. Return 'increased', 'decreased', or 'no change' depending on how time in range changed.",
-        "answer_instruction": "Collect all glucose readings from week {first_week} and calculate the percentage of readings that fall within the 70–180 mg/dL range. Repeat the same calculation for week {second_week}. Compare the two percentages and return 'increased' if the percentage for week {second_week} is higher, 'decreased' if it's lower, or 'no change' if they are equal.",
-        "answer_type": "categorical",
-        "metric": "Accuracy",
-        "example_answer": "increased",
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "TR,QC,CA",
-        "question_prototype": "Time in Range Change"   
-    })
+        first_week_idx, second_week_idx = random.sample(range(num_weeks), 2)
+        first_week, second_week = first_week_idx + 1, second_week_idx + 1
+        stats_a = all_weeks_stats[first_week_idx]
+        stats_b = all_weeks_stats[second_week_idx]
+
+        questions_and_answers.append({
+            "question_text": f"How did the patient's time in range change from week {first_week} to week {second_week}?",
+            "answer": (
+                "increased" if stats_b['tir_percent'] > stats_a['tir_percent']
+                else "decreased" if stats_b['tir_percent'] < stats_a['tir_percent']
+                else "no change"
+            ),
+            "answer_generation_rule": f"Compare % of readings in 70–180 mg/dL range between week {first_week} and week {second_week}. Return 'increased', 'decreased', or 'no change' depending on how time in range changed.",
+            "answer_instruction": "Collect all glucose readings from week {first_week} and calculate the percentage of readings that fall within the 70–180 mg/dL range. Repeat the same calculation for week {second_week}. Compare the two percentages and return 'increased' if the percentage for week {second_week} is higher, 'decreased' if it's lower, or 'no change' if they are equal.",
+            "answer_type": "categorical",
+            "metric": "Accuracy",
+            "example_answer": "increased",
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "TR,QC,CA",
+            "question_prototype": "Time in Range Change"
+        })
 
     return questions_and_answers
 
