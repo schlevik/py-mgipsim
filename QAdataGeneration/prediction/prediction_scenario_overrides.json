@@ -27,61 +27,31 @@
         ]
     },
     "late_night_snack": {
-        "running_start_time": [
-            "05:00",
-            "07:00"
-        ],
-        "am_snack_time_range": [
-            540,
-            660
-        ],
-        "running_speed": [
-            5.0
-        ],
-        "cycling_start_time": [
-            "16:00",
-            "18:00"
-        ],
-        "cycling_duration": [
-            20.0
-        ],
-        "cycling_power": [
-            90.0
-        ],
-        "pm_snack_time_range": [
-            1320,
-            1440
+        "day_specific_overrides": [
+            {
+                "target": "snack_carb",
+                "event_type": "pm_snack",
+                "day": 29,
+                "field": "start_time",
+                "value_range": [
+                    1320,
+                    1440
+                ]
+            }
         ]
     },
     "overeating_lunch": {
-        "running_start_time": [
-            "05:00",
-            "07:00"
-        ],
-        "am_snack_time_range": [
-            540,
-            660
-        ],
-        "cycling_start_time": [
-            "16:00",
-            "18:00"
-        ],
-        "running_speed": [
-            5.0
-        ],
-        "cycling_duration": [
-            20.0
-        ],
-        "pm_snack_time_range": [
-            900,
-            1020
-        ],
-        "cycling_power": [
-            90.0
-        ],
-        "lunch_carb_range": [
-            160,
-            240
+        "day_specific_overrides": [
+            {
+                "target": "meal_carb",
+                "event_type": "lunch",
+                "day": 30,
+                "field": "magnitude",
+                "value_range": [
+                    160,
+                    240
+                ]
+            }
         ]
     }
 }

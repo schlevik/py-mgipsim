@@ -155,7 +155,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
     11: {
         "function_name": "check_max_spike",
         "question_id": "pd_11",
-        "question_text": "Given recent habits of having a heavy lunch (160-240) carbs, what is the most likely time of day the patient will experience a glucose spike tomorrow?",
+        "question_text": "Given a heavy lunch (160-240) carbs tomorrow, what is the most likely time of day the patient will experience a glucose spike?",
         "answer_generation_rule": "Predict the time index assuming time is between 12AM to 12AM where index goes from 0 to 288 where time is sampled every 5 minutes",
         "answer_instruction": "Predict the time index assuming time is between 12AM to 12AM where index goes from 0 to 288 where time is sampled every 5 minutes",
         "answer_type": "int",
@@ -467,6 +467,24 @@ def find_recent_snack_index(carb_events, cutoff_time: float) -> int:
     return snack_index
 
 
+def find_late_night_snack_index(carb_events, intervention_day: int = 29) -> int:
+    day_start_minutes = (intervention_day - 1) * 24 * 60
+    late_snack_start = day_start_minutes + 1320
+    late_snack_end = day_start_minutes + 1440
+    matches = [
+        event
+        for event in carb_events
+        if event.get("meal_type") == "afternoon_snack"
+        and late_snack_start <= event["time"] <= late_snack_end
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            f"Expected exactly one late-night PM snack for day {intervention_day}, "
+            f"found {len(matches)}"
+        )
+    return int(matches[0]["time"] // 5) + 1
+
+
 def max_glucose_slope(bg_values, start_idx: int, end_idx: int):
     max_slope = float("-inf")
     for idx in range(start_idx + 1, end_idx + 1):
@@ -585,9 +603,13 @@ def question_2(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_3(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("late_night_snack", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_late_night_snack.csv", patient_index)
-    cutoff_time = 21 * SAMPLES_PER_DAY * 5
-    snack_idx = find_recent_snack_index(data.get("carb_events", []), cutoff_time)
+    snack_idx = find_late_night_snack_index(data.get("carb_events", []), intervention_day=29)
     end_idx = snack_idx + 60
+    day_30_start_idx = 29 * SAMPLES_PER_DAY
+    if end_idx <= day_30_start_idx:
+        raise ValueError("Late-night snack answer window does not include day 30 data")
+    if end_idx >= len(data["bg_mgdl"]):
+        raise ValueError("Late-night snack answer window exceeds available prediction data")
     bg_window = data["bg_mgdl"][snack_idx : end_idx + 1]
     answer = "Yes" if max(bg_window) > 180 else "No"
 
@@ -751,8 +773,8 @@ def question_10(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_11(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("overeating_lunch", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_overeating_lunch.csv", patient_index)
-    cut_idx = 24 * SAMPLES_PER_DAY
-    day_values = data["bg_mgdl"][cut_idx : 25 * SAMPLES_PER_DAY]
+    cut_idx = 29 * SAMPLES_PER_DAY
+    day_values = data["bg_mgdl"][cut_idx : 30 * SAMPLES_PER_DAY]
     max_val = 0
     max_ind = 1
     for idx in range(1, len(day_values)):
