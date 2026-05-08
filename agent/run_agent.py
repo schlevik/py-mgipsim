@@ -3,6 +3,19 @@ from agents import CodeInterpreterTool, Agent, ModelSettings, TResponseInputItem
 from pydantic import BaseModel
 from openai.types.shared.reasoning import Reasoning
 import asyncio
+import os
+import requests
+from openai import OpenAI
+
+import argparse 
+
+
+def parse_args():
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--qa_file", type=str, required=True)
+  parser.add_argument("--input_file", type=str, required=True)
+  parser.add_argument("--output_file", type=str, required=True)
+  return parser.parse_args()
 
 load_dotenv(override=True)
 
@@ -12,18 +25,70 @@ class WorkflowInput(BaseModel):
 class FinalAnswerAgentSchema(BaseModel):
   answer: str
 
-def get_coding_agent(file_id: str):
-  print("file_id: ", file_id)
-  # Tool definitions
+def get_container_id():
+    api_key = os.getenv("OPENAI_API_KEY")
+    url = "https://api.openai.com/v1/containers"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()['data'][0]['id'], response.json()['data'][0]['status']
+
+def get_file_ids(container_id):
+    api_key = os.getenv("OPENAI_API_KEY")
+    url = f"https://api.openai.com/v1/containers/{container_id}/files"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()['data']
+
+def upload_file(file_path, container_id):# The container ID (from your curl command)
+    api_key = os.getenv("OPENAI_API_KEY")
+    # Endpoint URL
+    url = f"https://api.openai.com/v1/containers/{container_id}/files"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+    }
+
+    with open(file_path, "rb") as file_to_upload:
+        files = {
+            "file": file_to_upload,
+        }
+        response = requests.post(url, headers=headers, files=files)
+
+    return response.json()['id']
+
+def delete_file_from_container(file_id, container_id):
+    """
+    Deletes a file from a specific container using the OpenAI API.
+
+    Args:
+        file_id (str): The ID of the file to be deleted.
+
+    Returns:
+        dict: The response from the API as a dictionary.
+    """
+    import requests
+    import os
+
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    # Endpoint URL for deleting the file
+    url = f"https://api.openai.com/v1/containers/{container_id}/files/{file_id}"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+    }
+
+    response = requests.delete(url, headers=headers)
+    return response.json()
+
+def get_coding_agent(container_id: str):
   code_interpreter = CodeInterpreterTool(tool_config={
     "type": "code_interpreter",
-    "container": ""
-    {
-      "type": "auto",
-      "file_ids": [
-      file_id
-      ]
-    }
+    "container": container_id
   })
 
   coding_agent = Agent(
@@ -63,13 +128,13 @@ def get_coding_agent(file_id: str):
   return coding_agent, final_answer_agent
 
 # Main code entrypoint
-async def run_workflow(workflow_input: WorkflowInput, file_id: str, question_id: str, patient_id: str):
-  with trace(workflow_name=f"Agent_workflow_anomaly_{question_id}_patient_{patient_id}", trace_id=f"trace_yannan_insulin_{question_id}_{patient_id}"):
+async def run_workflow(workflow_input: WorkflowInput, container_id: str, question_id: str, patient_id: str):
+  with trace(workflow_name=f"Agent_trace_for_paper_{question_id}_patient_{patient_id}", trace_id=f"trace_agent_for_paper_{question_id}_{patient_id}"):
     state = {
       "file_path": None
     }
 
-    coding_agent, final_answer_agent = get_coding_agent(file_id)
+    coding_agent, final_answer_agent = get_coding_agent(container_id)
     
     workflow = workflow_input.model_dump()
     conversation_history: list[TResponseInputItem] = [
@@ -110,32 +175,44 @@ async def run_workflow(workflow_input: WorkflowInput, file_id: str, question_id:
     }
     return final_answer_agent_result
 
-async def run():
+
+
+async def run(args):
     import json
     data = []
-    with open("/home/srini/time_series/loopqa/data/data/anomaly_latest/16_november/QA_ad_with_context.jsonl", "r") as f:
+
+    container_id, status = get_container_id()
+    file_ids = get_file_ids(container_id)
+    assert status != "expired" , "Container is not available"
+    assert file_ids == [] , "Enusre no files are present in the container"
+
+    with open(args.qa_file, "r") as f:
         for line in f:
             data.append(json.loads(line))
 
-    file_ids = []
-
-
-    for h in range(len(file_ids)):
+    for h in range(0,len(data)):
         patient_idx = h
         patient_id = data[patient_idx]['patient_id']
-        print("patient id: ", patient_id)
-        with open(f"./agent_outputs/anomaly/anomaly_patient_{patient_id}.jsonl", "w") as f:
+
+        #upload file to container
+        file_path = f"{args.input_file}"
+        #f"/home/srini/time_series/loopqa/agent_data/yannan/insulin/patient_{patient_id}.csv"
+        file_id = upload_file(file_path, container_id)
+        print("question number" , h+1)
+        #print("patient id: ", patient_id)
+
+        with open(args.output_file, "w") as f:
             for j,i in enumerate(data[patient_idx]['qa_pairs']):
                 print(f"Question: {j+1}")
                 question = i['question_text']
                 original_answer = i['answer']
-                question_id = i['question_id']
+                question_id = i['question_id']                
                 answer_instructions = i['answer_instruction']
                 answer_type = i['answer_type']
                 example_answer = i['example_answer']
                 input_txt = f"The Question is: {question} \n The answer instructions are: {answer_instructions} \n The answer type is: {answer_type} \n An example answer is: {example_answer}"
                 input_class = WorkflowInput(input_as_text=input_txt)
-                result = await run_workflow(input_class, file_ids[h], question_id, patient_id)
+                result = await run_workflow(input_class, container_id, question_id, patient_id)
                 dic = {}
                 dic['question_id'] = question_id
                 dic['patient_id'] = patient_id
@@ -147,5 +224,10 @@ async def run():
                 json.dump(dic, f)
                 f.write("\n")
 
+        #delete file from container
+        delete_status = delete_file_from_container(file_id, container_id)
+        print("delete status: ", delete_status)
+
 if __name__ == "__main__":
-    asyncio.run(run())
+    args = parse_args()
+    asyncio.run(run(args))
