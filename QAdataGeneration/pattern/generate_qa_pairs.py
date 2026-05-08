@@ -5,21 +5,79 @@ import os
 import random
 
 
+def _as_float_array(values):
+    return np.asarray(values, dtype=float)
+
+
+def _finite_values(values):
+    arr = _as_float_array(values)
+    return arr[np.isfinite(arr)]
+
+
+def _safe_mean(values):
+    finite = _finite_values(values)
+    return float(np.mean(finite)) if finite.size else None
+
+
+def _safe_max(values):
+    finite = _finite_values(values)
+    return float(np.max(finite)) if finite.size else None
+
+
+def _safe_min(values):
+    finite = _finite_values(values)
+    return float(np.min(finite)) if finite.size else None
+
+
+def _safe_std(values):
+    finite = _finite_values(values)
+    return float(np.std(finite)) if finite.size else None
+
+
+def _safe_round(value, digits=1):
+    if value is None or not np.isfinite(value):
+        return None
+    return round(float(value), digits)
+
+
+def _safe_cv(std, mean):
+    if std is None or mean is None or mean == 0:
+        return None
+    return (std / mean) * 100
+
+
+def _safe_argmax(values):
+    arr = _as_float_array(values)
+    finite_idx = np.flatnonzero(np.isfinite(arr))
+    if finite_idx.size == 0:
+        return None
+    return int(finite_idx[np.argmax(arr[finite_idx])])
+
+
+def _safe_argmin(values):
+    arr = _as_float_array(values)
+    finite_idx = np.flatnonzero(np.isfinite(arr))
+    if finite_idx.size == 0:
+        return None
+    return int(finite_idx[np.argmin(arr[finite_idx])])
+
+
 def generate_questions_and_answers(patient_data):
     """Generate questions and calculate ground truth answers."""
     
     ################## Overall Statistics over 30 Days ####################
-    bg_values = patient_data["bg_mgdl"]
+    bg_values = _as_float_array(patient_data["bg_mgdl"])
     bg_time = [i * 5 for i in range(len(bg_values))] # The data were sampled every 5 mins
 
     # Basic statistics
-    avg_glucose = np.mean(bg_values)
-    max_glucose = np.max(bg_values)
-    min_glucose = np.min(bg_values)
+    avg_glucose = _safe_mean(bg_values)
+    max_glucose = _safe_max(bg_values)
+    min_glucose = _safe_min(bg_values)
     
-    max_glucose_time = format_time_info(np.argmax(bg_values) * 5) # Example: (day, time) (1, '01:40')
-    max_glucose_time_minutes = np.argmax(bg_values) * 5  # Convert to timestamp in minutes
-    std_glucose = np.std(bg_values)
+    max_glucose_idx = _safe_argmax(bg_values)
+    max_glucose_time = format_time_info(max_glucose_idx * 5) if max_glucose_idx is not None else None
+    max_glucose_time_minutes = max_glucose_idx * 5 if max_glucose_idx is not None else None
+    std_glucose = _safe_std(bg_values)
     
     # Target range calculations
     in_range = [70 <= bg <= 180 for bg in bg_values]
@@ -28,7 +86,6 @@ def generate_questions_and_answers(patient_data):
     time_in_range_percentage = (sum(in_range) / len(bg_values)) * 100  
 
     above_range = [bg > 180 for bg in bg_values]
-    print(sum(above_range))
     time_above_range_minutes = sum(above_range) * 5
     time_above_range_hours = time_above_range_minutes / 60
     time_above_range_percentage = (sum(above_range) / len(bg_values)) * 100
@@ -86,28 +143,31 @@ def generate_questions_and_answers(patient_data):
             continue
             
         # Calculate daily statistics
-        day_mean = np.mean(day_bg_values)
-        day_max = np.max(day_bg_values)
-        day_min = np.min(day_bg_values)
-        day_std = np.std(day_bg_values)
-        day_cv = (day_std / day_mean) * 100 if day_mean != 0 else 0  # Coefficient of variation
+        day_mean = _safe_mean(day_bg_values)
+        day_max = _safe_max(day_bg_values)
+        day_min = _safe_min(day_bg_values)
+        day_std = _safe_std(day_bg_values)
+        day_cv = _safe_cv(day_std, day_mean)
 
-        morning_sd = np.std(morning_values)
-        afternoon_sd = np.std(afternoon_values)
-        evening_sd = np.std(evening_values)
+        morning_sd = _safe_std(morning_values)
+        afternoon_sd = _safe_std(afternoon_values)
+        evening_sd = _safe_std(evening_values)
         morning_sds.append(morning_sd)
         afternoon_sds.append(afternoon_sd)
         evening_sds.append(evening_sd)
         
         # Peak time within the day (in minutes from start of day)
-        peak_idx_in_day = np.argmax(day_bg_values)
-        peak_idx_global = start_idx + peak_idx_in_day
-        peak_time_minutes = peak_idx_global * 5
+        peak_idx_in_day = _safe_argmax(day_bg_values)
+        peak_idx_global = start_idx + peak_idx_in_day if peak_idx_in_day is not None else None
+        peak_time_minutes = peak_idx_global * 5 if peak_idx_global is not None else None
 
         # Convert to hours and minutes within a 24h day
-        peak_hours = (peak_time_minutes // 60) % 24
-        peak_mins = peak_time_minutes % 60
-        peak_time_str = f"{peak_hours:02d}:{peak_mins:02d}"
+        if peak_time_minutes is not None:
+            peak_hours = (peak_time_minutes // 60) % 24
+            peak_mins = peak_time_minutes % 60
+            peak_time_str = f"{peak_hours:02d}:{peak_mins:02d}"
+        else:
+            peak_time_str = None
         
         # Time in range for this day
         day_in_range = [70 <= bg <= 180 for bg in day_bg_values]
@@ -142,16 +202,16 @@ def generate_questions_and_answers(patient_data):
         # Store daily statistics
         daily_bg[f"day{day}"] = {
             "bg": day_bg_values,
-            "mean": round(day_mean, 1),
-            "max": round(day_max, 1),
-            "min": round(day_min, 1),
-            "std": round(day_std, 1),
-            "cv": round(day_cv, 1),
+            "mean": _safe_round(day_mean, 1),
+            "max": _safe_round(day_max, 1),
+            "min": _safe_round(day_min, 1),
+            "std": _safe_round(day_std, 1),
+            "cv": _safe_round(day_cv, 1),
             "morning_sd": morning_sd,
             "afternoon_sd": afternoon_sd,
             "peak_time": peak_time_str,
             "peak_time_minutes": peak_time_minutes,  # Add timestamp version
-            "peak_value": round(day_max, 1),
+            "peak_value": _safe_round(day_max, 1),
             "time_in_range_minutes": day_tir_minutes,
             "time_in_range_hours": round(day_tir_hours, 1),
             "time_in_range_percentage": round(day_tir_percentage, 1),
@@ -162,7 +222,7 @@ def generate_questions_and_answers(patient_data):
 
     
     # meal-related calculations per day
-    carb_events = patient_data["carb_events"]
+    carb_events = patient_data.get("carb_events", [])
     meal_responses = {}
     for meal in carb_events:
         day = int(meal['day'])
@@ -176,15 +236,17 @@ def generate_questions_and_answers(patient_data):
             continue
 
         baseline = bg_values[meal_index]
+        if not np.isfinite(baseline):
+            continue
         post_meal_window = min(180 // 5, len(bg_values) - meal_index - 1)  # 3 hours post-meal window in steps (36 steps)
 
         if post_meal_window <= 0:
             continue
 
         post_meal_bg = bg_values[meal_index +1 : meal_index + post_meal_window + 1]
+        peak_index = _safe_argmax(post_meal_bg)
 
-        if len(post_meal_bg) > 1:
-            peak_index = np.argmax(post_meal_bg)
+        if len(post_meal_bg) > 1 and peak_index is not None:
             peak = post_meal_bg[peak_index]
             peak_time = int((meal_time // 5 + peak_index) * 5) # convert from steps to minutes
             peak_time_str = format_time_info(peak_time)
@@ -201,6 +263,8 @@ def generate_questions_and_answers(patient_data):
             initial_window_steps = min(30 // 5, len(post_meal_bg) - 1)  # 6 steps
             initial_rise = post_meal_bg[initial_window_steps] - baseline
             rise_rate = initial_rise / 30  # mg/dL per minute
+            if not np.isfinite(initial_rise):
+                rise_rate = None
 
             day_key = f"day{day}"
             if day_key not in meal_responses:
@@ -214,7 +278,7 @@ def generate_questions_and_answers(patient_data):
                     "peak_time": peak_time_str,
                     "peak_time_minutes": peak_time,  # Add timestamp version
                     "time_to_baseline_min": time_to_baseline,
-                    "rise_rate_per_min": round(rise_rate, 1),
+                    "rise_rate_per_min": _safe_round(rise_rate, 1),
                     "spike": round((peak - baseline),1),
                 }
 
@@ -229,7 +293,7 @@ def generate_questions_and_answers(patient_data):
 
     # activities-related calculations per day
     exercise_responses = {}
-    exercise_events = patient_data["exercise_events"]
+    exercise_events = patient_data.get("exercise_events", [])
 
     for ex in exercise_events:
         day = int(ex["day"])
@@ -240,25 +304,36 @@ def generate_questions_and_answers(patient_data):
         start_index = int(start_time // 5)
         end_index = int(end_time // 5)
 
+        if start_index < 0 or start_index >= len(bg_values):
+            continue
+        end_index = min(end_index, len(bg_values))
+        if end_index <= start_index:
+            continue
 
         # Baseline before exercise
         baseline = bg_values[start_index]
+        if not np.isfinite(baseline):
+            continue
 
         # During exercise
         during_bg = bg_values[start_index : end_index]
-        min_during = np.min(during_bg)
-        max_during = np.max(during_bg) 
-        mean_during = np.mean(during_bg)
+        if _finite_values(during_bg).size == 0:
+            continue
+        min_during = _safe_min(during_bg)
+        max_during = _safe_max(during_bg)
+        mean_during = _safe_mean(during_bg)
 
         # Post-exercise window 2-hour
         post_window_len = min(120 // 5, len(bg_values) - end_index - 1)
         post_bg = bg_values[end_index + 1: end_index + post_window_len + 1]
-        post_peak = np.max(post_bg)
-        post_nadir = np.min(post_bg)
-        post_mean = np.mean(post_bg)
-        post_sd = np.std(post_bg)
-        post_cv = round((post_sd / post_mean) * 100, 1)
-        post_nadir_idx = np.argmin(post_bg)
+        post_nadir_idx = _safe_argmin(post_bg)
+        if post_nadir_idx is None:
+            continue
+        post_peak = _safe_max(post_bg)
+        post_nadir = _safe_min(post_bg)
+        post_mean = _safe_mean(post_bg)
+        post_sd = _safe_std(post_bg)
+        post_cv = _safe_round(_safe_cv(post_sd, post_mean), 1)
         time_to_lowest_post_exercise = post_nadir_idx * 5  # assuming 5-minute sampling
 
 
@@ -272,6 +347,8 @@ def generate_questions_and_answers(patient_data):
         # Time to return to baseline post-exercise compared to pre-exercise baseline
         time_to_baseline = None
         for i, val in enumerate(post_bg):
+            if not np.isfinite(val):
+                continue
             if abs(val - baseline) <= baseline * 0.1:  # within 10%
                 time_to_baseline = i * 5  # minutes
                 break
@@ -308,7 +385,7 @@ def generate_questions_and_answers(patient_data):
     # Basic Statistics questions
     questions_and_answers.append({
         "question_text": "What was the patient's average blood glucose level?",
-        "answer": round(avg_glucose, 1),
+        "answer": _safe_round(avg_glucose, 1),
         "answer_generation_rule": "Calculate the mean of all blood glucose values.",
         "answer_instruction": "Return the average of all blood glucose values, rounded to one decimal place.",
         "answer_type": "float",
@@ -321,7 +398,7 @@ def generate_questions_and_answers(patient_data):
    
     questions_and_answers.append({
         "question_text": "What was the highest blood glucose level recorded?",
-        "answer": round(max_glucose, 1),
+        "answer": _safe_round(max_glucose, 1),
         "answer_generation_rule": "Find the maximum value in the blood glucose array.",
         "answer_instruction": "Scan all glucose readings to identify the maximum value. Report it as a float rounded to one decimal place.",
         "answer_type": "float",
@@ -334,7 +411,7 @@ def generate_questions_and_answers(patient_data):
 
     questions_and_answers.append({
         "question_text": "What was the lowest blood glucose level recorded?",
-        "answer": round(min_glucose, 1),
+        "answer": _safe_round(min_glucose, 1),
         "answer_generation_rule": "Find the minimum value in the blood glucose array.",
         "answer_instruction": "Scan all glucose readings to identify the minimum value. Report it as a float rounded to one decimal place",
         "answer_type": "float",
@@ -430,7 +507,7 @@ def generate_questions_and_answers(patient_data):
 
     questions_and_answers.append({
         "question_text": "What was the standard deviation of the patient's glucose levels?",
-        "answer": round(std_glucose, 1),
+        "answer": _safe_round(std_glucose, 1),
         "answer_generation_rule": "Calculate the standard deviation of all blood glucose values.",
         "answer_instruction": "Return the standard deviation of glucose values, rounded to one decimal place",
         "answer_type": "float",
@@ -509,7 +586,7 @@ def generate_questions_and_answers(patient_data):
 
     questions_and_answers.append({
         "question_text": f"What was the average glucose reading between 2-4pm on {day_name}?",
-        "answer": round(np.mean(daily_bg[day_key]["bg"][168:192]), 1),
+        "answer": _safe_round(_safe_mean(daily_bg[day_key]["bg"][168:192]), 1),
         "answer_generation_rule": f"Filter readings for 2-4 pm on {day_name} and compute the mean.",
         "answer_instruction": f"Extract glucose readings from 2-4 pm for {day_name}, compute the mean, and round to one decimal place.",
         "answer_type": "float",
@@ -531,6 +608,8 @@ def generate_questions_and_answers(patient_data):
     for day_key, day_data in daily_bg.items():
         day_num = int(day_key.replace("day", ""))
         cv = day_data["cv"]
+        if cv is None:
+            continue
         if cv < 36:
             stable_days.append(day_num)
 
@@ -543,10 +622,12 @@ def generate_questions_and_answers(patient_data):
             most_stable_day = day_num
 
     # morning/afternoon comparision   
-    avg_morning_sd = np.mean(morning_sds)
-    avg_afternoon_sd = np.mean(afternoon_sds)
+    avg_morning_sd = _safe_mean([v for v in morning_sds if v is not None])
+    avg_afternoon_sd = _safe_mean([v for v in afternoon_sds if v is not None])
 
-    if avg_morning_sd > avg_afternoon_sd:
+    if avg_morning_sd is None or avg_afternoon_sd is None:
+        higher_period = "equal in both"
+    elif avg_morning_sd > avg_afternoon_sd:
         higher_period = "morning"
     elif avg_afternoon_sd > avg_morning_sd:
         higher_period = "afternoon"
@@ -554,12 +635,14 @@ def generate_questions_and_answers(patient_data):
         higher_period = "equal in both"
 
     # weekdays/weekends comparision 
-    weekday_cvs = [daily_bg[f"day{i}"]["cv"] for i in range(1, 6)]
-    avg_cv_weekdays = np.mean(weekday_cvs)
-    weekend_cvs = [daily_bg[f"day{i}"]["cv"] for i in range(6, 8)]
-    avg_cv_weekends = np.mean(weekend_cvs)
+    weekday_cvs = [daily_bg[f"day{i}"]["cv"] for i in range(1, 6) if f"day{i}" in daily_bg and daily_bg[f"day{i}"]["cv"] is not None]
+    avg_cv_weekdays = _safe_mean(weekday_cvs)
+    weekend_cvs = [daily_bg[f"day{i}"]["cv"] for i in range(6, 8) if f"day{i}" in daily_bg and daily_bg[f"day{i}"]["cv"] is not None]
+    avg_cv_weekends = _safe_mean(weekend_cvs)
 
-    if avg_cv_weekdays > avg_cv_weekends:
+    if avg_cv_weekdays is None or avg_cv_weekends is None:
+        higher_weekdays_weekends = "equal in both"
+    elif avg_cv_weekdays > avg_cv_weekends:
         higher_weekdays_weekends = "weekdays"
     elif avg_cv_weekdays < avg_cv_weekends:
         higher_weekdays_weekends = "weekend"
@@ -636,86 +719,86 @@ def generate_questions_and_answers(patient_data):
     })
 
 
+    def format_day_name(day):
+        week = (day - 1) // 7 + 1
+        day_in_week = (day - 1) % 7 + 1
+        return f"week {week}, day {day_in_week}"
+
     # Meal-related questions
 
     random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
+    day_name = format_day_name(random_day)
+    if "lunch" in meal_responses.get(day_key, {}):
 
-    questions_and_answers.append({
-        "question_text": f"What was the peak glucose level after lunch on {day_name}?",
-        "answer": round(meal_responses[day_key]['lunch']['peak'], 1),
-        "answer_generation_rule": f"Find maximum glucose value in the post-lunch window (3 hours) on {day_name}.",
-        "answer_instruction": f"Identify the data corresponding to {day_name}, locate the lunch time for that day, select all glucose readings within the 3-hour window following lunch, find the maximum glucose value among those readings, and return it as a float rounded to one decimal place.",
-        "answer_type": "float",
-        "metric": "MAE",
-        "example_answer": 165.0,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Postprandial Peak Glucose"
-    })
+        questions_and_answers.append({
+            "question_text": f"What was the peak glucose level after lunch on {day_name}?",
+            "answer": round(meal_responses[day_key]['lunch']['peak'], 1),
+            "answer_generation_rule": f"Find maximum glucose value in the post-lunch window (3 hours) on {day_name}.",
+            "answer_instruction": f"Identify the data corresponding to {day_name}, locate the lunch time for that day, select all glucose readings within the 3-hour window following lunch, find the maximum glucose value among those readings, and return it as a float rounded to one decimal place.",
+            "answer_type": "float",
+            "metric": "MAE",
+            "example_answer": 165.0,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Postprandial Peak Glucose"
+        })
 
     random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
+    day_name = format_day_name(random_day)
+    if (
+        "dinner" in meal_responses.get(day_key, {})
+        and meal_responses[day_key]["dinner"]["time_to_baseline_min"] is not None
+    ):
 
-    questions_and_answers.append({
-        "question_text": f"How long did it take for glucose levels to return to baseline after dinner on {day_name}?",
-        "answer": meal_responses[day_key]['dinner']['time_to_baseline_min'],
-        "answer_generation_rule": f"Find first time after peak when glucose returns to within 10% of pre-meal baseline on {day_name}, and calculate how long it took in minutes.",
-        "answer_instruction": f"Identify {day_name} and locate the dinner time, record the baseline glucose as the value immediately before dinner, select all glucose readings within the 3-hour post-dinner window, find the peak glucose value and its timestamp within this window, then examine subsequent readings after the peak to find the first time point where glucose falls within ±10% of the baseline value, compute the time difference in minutes between the meal time (or peak time if specified) and this return time, and return this duration; if no such point exists within the 3-hour window, return None.",
-        "answer_type": "int",
-        "metric": "MAE",
-        "example_answer": 90,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Postprandial Time to Baseline"    
-    })
-
-    random_day = random.randint(1, num_days)
-    day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
-    questions_and_answers.append({
-        "question_text": f"Which meal caused the highest glucose rise on {day_name}?",
-        "answer": meal_responses[day_key]['max_spike_meal'],
-        "answer_generation_rule": f"Compare glucose rise (peak minus baseline) values for all meals in post-meal window (3 hours) to find largest increase on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the times of breakfast, lunch, and dinner, for each meal record the baseline glucose as the value immediately before the meal, select glucose readings within the 3-hour post-meal window, compute the glucose rise as the difference between the maximum glucose value in the window and the baseline, compare the rises across the three meals, and return the meal name ('breakfast', 'lunch', or 'dinner') corresponding to the largest rise.",
-        "answer_type": "categorical",
-        "metric": "Accuracy",
-        "example_answer": "lunch",
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC,CA",
-        "question_prototype": "Postprandial Glucose Rise"    
-    })
+        questions_and_answers.append({
+            "question_text": f"How long did it take for glucose levels to return to baseline after dinner on {day_name}?",
+            "answer": meal_responses[day_key]['dinner']['time_to_baseline_min'],
+            "answer_generation_rule": f"Find first time after peak when glucose returns to within 10% of pre-meal baseline on {day_name}, and calculate how long it took in minutes.",
+            "answer_instruction": f"Identify {day_name} and locate the dinner time, record the baseline glucose as the value immediately before dinner, select all glucose readings within the 3-hour post-dinner window, find the peak glucose value and its timestamp within this window, then examine subsequent readings after the peak to find the first time point where glucose falls within ±10% of the baseline value, compute the time difference in minutes between the meal time (or peak time if specified) and this return time, and return this duration; if no such point exists within the 3-hour window, return None.",
+            "answer_type": "int",
+            "metric": "MAE",
+            "example_answer": 90,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Postprandial Time to Baseline"    
+        })
 
     random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
+    day_name = format_day_name(random_day)
+    if "max_spike_meal" in meal_responses.get(day_key, {}):
+        questions_and_answers.append({
+            "question_text": f"Which meal caused the highest glucose rise on {day_name}?",
+            "answer": meal_responses[day_key]['max_spike_meal'],
+            "answer_generation_rule": f"Compare glucose rise (peak minus baseline) values for all meals in post-meal window (3 hours) to find largest increase on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the recorded meal times, for each meal record the baseline glucose as the value immediately before the meal, select glucose readings within the 3-hour post-meal window, compute the glucose rise as the difference between the maximum glucose value in the window and the baseline, compare the rises across the meals, and return the meal name corresponding to the largest rise.",
+            "answer_type": "categorical",
+            "metric": "Accuracy",
+            "example_answer": "lunch",
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC,CA",
+            "question_prototype": "Postprandial Glucose Rise"    
+        })
 
-    questions_and_answers.append({
-        "question_text": f"What was the glucose rise rate after the morning snack on {day_name}?",
-        "answer": meal_responses[day_key]['morning_snack']['rise_rate_per_min'],
-        "answer_generation_rule": f"Calculate rate of increase from baseline to 30-minute post-meal glucose on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the morning snack time, record the baseline glucose as the value immediately before the snack, find the glucose value at 30 minutes after the snack, compute the rate of increase as (glucose at 30 minutes minus baseline) divided by 30 minutes, and return the result rounded to one decimal places.",
-        "answer_type": "float",
-        "metric": "MAE",
-        "example_answer": 1.45,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Postprandial Glucose Change Rate" 
-    })
+    random_day = random.randint(1, num_days)
+    day_key = f"day{random_day}"
+    day_name = format_day_name(random_day)
+    if "morning_snack" in meal_responses.get(day_key, {}):
+
+        questions_and_answers.append({
+            "question_text": f"What was the glucose rise rate after the morning snack on {day_name}?",
+            "answer": meal_responses[day_key]['morning_snack']['rise_rate_per_min'],
+            "answer_generation_rule": f"Calculate rate of increase from baseline to 30-minute post-meal glucose on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the morning snack time, record the baseline glucose as the value immediately before the snack, find the glucose value at 30 minutes after the snack, compute the rate of increase as (glucose at 30 minutes minus baseline) divided by 30 minutes, and return the result rounded to one decimal places.",
+            "answer_type": "float",
+            "metric": "MAE",
+            "example_answer": 1.4,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Postprandial Glucose Change Rate" 
+        })
 
     heavy_dinner_days = []
 
@@ -742,211 +825,197 @@ def generate_questions_and_answers(patient_data):
 
     random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
+    day_name = format_day_name(random_day)
+    if "lunch" in meal_responses.get(day_key, {}):
 
-    questions_and_answers.append({
-        "question_text": f"What was the peak glucose level after lunch on {day_name}?",
-        "answer": round(meal_responses[day_key]['lunch']['peak'], 1),
-        "answer_generation_rule": f"Find maximum glucose value in the post-lunch window (3 hours) on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the lunch time, select all glucose readings within the 3-hour post-lunch window, find the maximum glucose value among those readings, and return it as a float rounded to one decimal place.",
-        "answer_type": "float",
-        "metric": "MAE",
-        "example_answer": 165.0,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Postprandial Glucose Peak"   
-    })
+        questions_and_answers.append({
+            "question_text": f"What was the peak glucose level after lunch on {day_name}?",
+            "answer": round(meal_responses[day_key]['lunch']['peak'], 1),
+            "answer_generation_rule": f"Find maximum glucose value in the post-lunch window (3 hours) on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the lunch time, select all glucose readings within the 3-hour post-lunch window, find the maximum glucose value among those readings, and return it as a float rounded to one decimal place.",
+            "answer_type": "float",
+            "metric": "MAE",
+            "example_answer": 165.0,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Postprandial Glucose Peak"   
+        })
     
 
     # Activity-related questions
 
     random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
+    day_name = format_day_name(random_day)
 
-    questions_and_answers.append({
-        "question_text": f"What was the peak glucose level during exercise on {day_name}?",
-        "answer": round(exercise_responses[day_key]['max_during'], 1),
-        "answer_generation_rule": f"Find the maximum glucose level during the exercise period on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during this exercise period, find the maximum glucose value among those readings, and return it as a float rounded to one decimal place.",
-        "answer_type": "float",
-        "metric": "MAE",
-        "example_answer": 125.5,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Exercise Glucose Peak"  
-    })
+    if day_key in exercise_responses:
+        questions_and_answers.append({
+            "question_text": f"What was the peak glucose level during exercise on {day_name}?",
+            "answer": round(exercise_responses[day_key]['max_during'], 1),
+            "answer_generation_rule": f"Find the maximum glucose level during the exercise period on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during this exercise period, find the maximum glucose value among those readings, and return it as a float rounded to one decimal place.",
+            "answer_type": "float",
+            "metric": "MAE",
+            "example_answer": 125.5,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Exercise Glucose Peak"  
+        })
 
     random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
+    day_name = format_day_name(random_day)
 
-    questions_and_answers.append({
-        "question_text": f"What was the lowest glucose level during exercise on {day_name}?",
-        "answer": round(exercise_responses[day_key]['min_during'], 1),
-        "answer_generation_rule": f"Find the minimum glucose level during the exercise period on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during this exercise period, find the minimum glucose value among those readings, and return it as a float rounded to one decimal place.",
-        "answer_type": "float",
-        "metric": "MAE",
-        "example_answer": 78.0,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Exercise Lowest Glucose"          
-    })
-
-    random_day = random.randint(1, num_days)
-    day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
-
-    questions_and_answers.append({
-        "question_text": f"What was the lowest glucose level after exercise on {day_name}?",
-        "answer": round(exercise_responses[day_key]['post_nadir'], 1),
-        "answer_generation_rule": f"Find the minimum glucose value within 180 minutes after exercise ends on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 180-minute window following the end of exercise, find the minimum glucose value among those readings, and return it as a float rounded to one decimal place.",
-        "answer_type": "float",
-        "metric": "MAE",
-        "example_answer": 85.2,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Exercise Lowest Glucose"    
-    })
+    if (
+        day_key in exercise_responses
+        and exercise_responses[day_key]["time_to_baseline_min"] is not None
+    ):
+        questions_and_answers.append({
+            "question_text": f"What was the lowest glucose level during exercise on {day_name}?",
+            "answer": round(exercise_responses[day_key]['min_during'], 1),
+            "answer_generation_rule": f"Find the minimum glucose level during the exercise period on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during this exercise period, find the minimum glucose value among those readings, and return it as a float rounded to one decimal place.",
+            "answer_type": "float",
+            "metric": "MAE",
+            "example_answer": 78.0,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Exercise Lowest Glucose"          
+        })
 
     random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
+    day_name = format_day_name(random_day)
 
-    questions_and_answers.append({
-        "question_text": f"What was the glucose rate of change after exercise on {day_name}?",
-        "answer": exercise_responses[day_key]['rate_of_change'],
-        "answer_generation_rule": f"Calculate the rate of glucose change in the first 60 minutes after exercise on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the exercise session, record the baseline glucose as the value immediately before exercise starts, find the first glucose measurement at or after the exercise end time, compute the rate of change by subtracting the baseline value from this post-exercise glucose value and dividing by the elapsed time in minutes between the two measurements, and return the result rounded to one decimal place.",
-        "answer_type": "float",
-        "metric": "MAE",
-        "example_answer": 0.87,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Exercise Glucose Change Rate"    
-    })
+    if day_key in exercise_responses:
+        questions_and_answers.append({
+            "question_text": f"What was the lowest glucose level after exercise on {day_name}?",
+            "answer": round(exercise_responses[day_key]['post_nadir'], 1),
+            "answer_generation_rule": f"Find the minimum glucose value within 180 minutes after exercise ends on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 180-minute window following the end of exercise, find the minimum glucose value among those readings, and return it as a float rounded to one decimal place.",
+            "answer_type": "float",
+            "metric": "MAE",
+            "example_answer": 85.2,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Exercise Lowest Glucose"    
+        })
 
     random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
+    day_name = format_day_name(random_day)
 
-    questions_and_answers.append({
-        "question_text": f"How long did it take for glucose levels to return to baseline after exercise on {day_name}?",
-        "answer": exercise_responses[day_key]['time_to_baseline_min'],
-        "answer_generation_rule": f"Find the first time after exercise ends when glucose returns to within 10% of the pre-exercise baseline on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the exercise session, record the pre-exercise baseline as the glucose value immediately before exercise starts, select all glucose readings within the 2-hour window after exercise ends, find the first reading in this window whose glucose value falls within ±10% of the baseline, calculate the time difference in minutes between the exercise end time and that reading, and return this duration; if no such reading occurs within the 2-hour window, return None.",
-        "answer_type": "int",
-        "metric": "MAE",
-        "example_answer": 75,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Exercise Time to Baseline"   
-    })
+    if day_key in exercise_responses:
+        questions_and_answers.append({
+            "question_text": f"What was the glucose rate of change after exercise on {day_name}?",
+            "answer": exercise_responses[day_key]['rate_of_change'],
+            "answer_generation_rule": f"Calculate the rate of glucose change in the first 60 minutes after exercise on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the exercise session, record the baseline glucose as the value immediately before exercise starts, find the first glucose measurement at or after the exercise end time, compute the rate of change by subtracting the baseline value from this post-exercise glucose value and dividing by the elapsed time in minutes between the two measurements, and return the result rounded to one decimal place.",
+            "answer_type": "float",
+            "metric": "MAE",
+            "example_answer": 0.87,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Exercise Glucose Change Rate"    
+        })
 
     random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
+    day_name = format_day_name(random_day)
 
-    questions_and_answers.append({
-        "question_text": f"What was the patient's average glucose level within 1 hour after reported exercise on {day_name}?",
-        "answer": round(exercise_responses[day_key]['post_mean'], 1),
-        "answer_generation_rule": f"Compute the average glucose value for the 60 minutes following the end of exercise on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 1-hour window immediately following exercise end, calculate the average of those glucose values, and return the result as a float rounded to one decimal place.",
-        "answer_type": "float",
-        "metric": "MAE",
-        "example_answer": 112.5,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Exercise Glucose Average"   
-    })
-
-    random_day = random.randint(1, num_days)
-    day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
-
-    questions_and_answers.append({
-        "question_text": f"What was the patient's average glucose level during reported exercise on {day_name}?",
-        "answer": round(exercise_responses[day_key]['mean_during'], 1),
-        "answer_generation_rule": f"Compute the average glucose value during exercise on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during the exercise period, calculate the average of those glucose values, and return the result as a float rounded to one decimal place.",
-        "answer_type": "float",
-        "metric": "MAE",
-        "example_answer": 110.5,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Exercise Glucose Average"   
-    })
+    if (
+        day_key in exercise_responses
+        and exercise_responses[day_key]["time_to_baseline_min"] is not None
+    ):
+        questions_and_answers.append({
+            "question_text": f"How long did it take for glucose levels to return to baseline after exercise on {day_name}?",
+            "answer": exercise_responses[day_key]['time_to_baseline_min'],
+            "answer_generation_rule": f"Find the first time after exercise ends when glucose returns to within 10% of the pre-exercise baseline on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the exercise session, record the pre-exercise baseline as the glucose value immediately before exercise starts, select all glucose readings within the 2-hour window after exercise ends, find the first reading in this window whose glucose value falls within ±10% of the baseline, calculate the time difference in minutes between the exercise end time and that reading, and return this duration; if no such reading occurs within the 2-hour window, return None.",
+            "answer_type": "int",
+            "metric": "MAE",
+            "example_answer": 75,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Exercise Time to Baseline"   
+        })
 
     random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
+    day_name = format_day_name(random_day)
 
-    questions_and_answers.append({
-        "question_text": f"What was the maximum glucose drop following activity on {day_name}?",
-        "answer": round(exercise_responses[day_key]['max_drop'], 1),
-        "answer_generation_rule": f"Subtract the lowest post-exercise glucose value within 2 hour time window from the pre-exercise baseline on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the exercise session, record the pre-exercise baseline as the glucose value immediately before exercise starts, select all glucose readings within the 2-hour window after exercise ends, find the minimum glucose value in that window, subtract this minimum value from the baseline value, and return the result as a float rounded to one decimal place.",
-        "answer_type": "float",
-        "metric": "MAE",
-        "example_answer": 35.0,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Exercise Glucose Drop"   
-    })
+    if day_key in exercise_responses:
+        questions_and_answers.append({
+            "question_text": f"What was the patient's average glucose level within 1 hour after reported exercise on {day_name}?",
+            "answer": round(exercise_responses[day_key]['post_mean'], 1),
+            "answer_generation_rule": f"Compute the average glucose value for the 60 minutes following the end of exercise on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 1-hour window immediately following exercise end, calculate the average of those glucose values, and return the result as a float rounded to one decimal place.",
+            "answer_type": "float",
+            "metric": "MAE",
+            "example_answer": 112.5,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Exercise Glucose Average"   
+        })
 
     random_day = random.randint(1, num_days)
     day_key = f"day{random_day}"
-    
-    week = (random_day - 1) // 7 + 1
-    day_in_week = (random_day - 1) % 7 + 1
-    day_name = f"week {week}, day {day_in_week}"
+    day_name = format_day_name(random_day)
 
-    questions_and_answers.append({
-        "question_text": f"How long after exercise did the patient's glucose reach its lowest point on {day_name}?",
-        "answer": exercise_responses[day_key]['time_to_lowest_post_exercise'],
-        "answer_generation_rule": f"Find the time difference (in minutes) between exercise end and the post-exercise glucose nadir on {day_name}.",
-        "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 2-hour window after exercise ends, find the minimum glucose value in that window and the first time it occurs, calculate the time difference in minutes between the exercise end time and that reading, and return the duration in minutes.",
-        "answer_type": "int",
-        "metric": "MAE",
-        "example_answer": 45,
-        "cognitive_level": "Memory",
-        "cognitive_atomic": "ER,TR,QC",
-        "question_prototype": "Exercise Glucose Drop"   
-    })
+    if day_key in exercise_responses:
+        questions_and_answers.append({
+            "question_text": f"What was the patient's average glucose level during reported exercise on {day_name}?",
+            "answer": round(exercise_responses[day_key]['mean_during'], 1),
+            "answer_generation_rule": f"Compute the average glucose value during exercise on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during the exercise period, calculate the average of those glucose values, and return the result as a float rounded to one decimal place.",
+            "answer_type": "float",
+            "metric": "MAE",
+            "example_answer": 110.5,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Exercise Glucose Average"   
+        })
+
+    random_day = random.randint(1, num_days)
+    day_key = f"day{random_day}"
+    day_name = format_day_name(random_day)
+
+    if day_key in exercise_responses:
+        questions_and_answers.append({
+            "question_text": f"What was the maximum glucose drop following activity on {day_name}?",
+            "answer": round(exercise_responses[day_key]['max_drop'], 1),
+            "answer_generation_rule": f"Subtract the lowest post-exercise glucose value within 2 hour time window from the pre-exercise baseline on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the exercise session, record the pre-exercise baseline as the glucose value immediately before exercise starts, select all glucose readings within the 2-hour window after exercise ends, find the minimum glucose value in that window, subtract this minimum value from the baseline value, and return the result as a float rounded to one decimal place.",
+            "answer_type": "float",
+            "metric": "MAE",
+            "example_answer": 35.0,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Exercise Glucose Drop"   
+        })
+
+    random_day = random.randint(1, num_days)
+    day_key = f"day{random_day}"
+    day_name = format_day_name(random_day)
+
+    if day_key in exercise_responses:
+        questions_and_answers.append({
+            "question_text": f"How long after exercise did the patient's glucose reach its lowest point on {day_name}?",
+            "answer": exercise_responses[day_key]['time_to_lowest_post_exercise'],
+            "answer_generation_rule": f"Find the time difference (in minutes) between exercise end and the post-exercise glucose nadir on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 2-hour window after exercise ends, find the minimum glucose value in that window and the first time it occurs, calculate the time difference in minutes between the exercise end time and that reading, and return the duration in minutes.",
+            "answer_type": "int",
+            "metric": "MAE",
+            "example_answer": 45,
+            "cognitive_level": "Memory",
+            "cognitive_atomic": "ER,TR,QC",
+            "question_prototype": "Exercise Glucose Drop"   
+        })
 
     stable_days_after_exercise = []
     for day_key, ex in exercise_responses.items():
         day = int(day_key.replace("day",''))
-        if ex['post_cv'] < 36:
+        if ex['post_cv'] is not None and ex['post_cv'] < 36:
             stable_days_after_exercise.append(day)
 
 
@@ -965,23 +1034,24 @@ def generate_questions_and_answers(patient_data):
 
     # week level questions
     # Calculate weekly metrics (assuming 7-day weeks, ignoring the last 2 days))
-    bg_values = patient_data["bg_mgdl"]  # list of bg values every 5 mins
+    bg_values = _as_float_array(patient_data["bg_mgdl"])  # list of bg values every 5 mins
     readings_per_day = 288
     readings_per_week = readings_per_day * 7
 
     def get_metrics(week_bg):
-        week_array = np.array(week_bg)
-        mean = np.mean(week_array)
-        std = np.std(week_array)
-        cv = round((std / mean) * 100, 1) if mean > 0 else None
+        week_array = _as_float_array(week_bg)
+        mean = _safe_mean(week_array)
+        std = _safe_std(week_array)
+        cv = _safe_round(_safe_cv(std, mean), 1)
 
-        tir = np.sum((week_array >= 70) & (week_array <= 180)) / len(week_array) * 100
+        valid = np.isfinite(week_array)
+        tir = np.sum((week_array >= 70) & (week_array <= 180)) / np.sum(valid) * 100 if np.any(valid) else 0
         hypoglycemia_time_min = np.sum(week_array < 70) * 5
         hyperglycemia_time_min = np.sum(week_array > 180) * 5
 
         return {
-            "mean": round(mean, 1),
-            "std": round(std, 1),
+            "mean": _safe_round(mean, 1),
+            "std": _safe_round(std, 1),
             "cv": cv,
             "tir_percent": round(tir, 1),
             "hypoglycemia_minutes": int(hypoglycemia_time_min),
@@ -1019,18 +1089,19 @@ def generate_questions_and_answers(patient_data):
         stats_a = all_weeks_stats[first_week_idx]
         stats_b = all_weeks_stats[second_week_idx]
 
-        questions_and_answers.append({
-            "question_text": f"Which week had more stable blood glucose: week {first_week} or week {second_week}?",
-            "answer": f"week {first_week}" if stats_a['cv'] < stats_b['cv'] else f"week {second_week}",
-            "answer_generation_rule": f"Compare CV (SD/mean) of glucose readings from week {first_week} and week {second_week}.",
-            "answer_instruction": f"Collect all glucose readings from week {first_week} and calculate their coefficient of variation by dividing the standard deviation by the mean and multiplying by 100, repeat the same calculation for week {second_week}, compare the two CV values, and return {first_week} if week {first_week} has the lower coefficient of variation; otherwise return {second_week}.",
-            "answer_type": "categorical",
-            "metric": "Accuracy",
-            "example_answer": f"week {first_week}",
-            "cognitive_level": "Memory",
-            "cognitive_atomic": "TR,QC,CA",
-            "question_prototype": "Stability"
-        })
+        if stats_a['cv'] is not None and stats_b['cv'] is not None:
+            questions_and_answers.append({
+                "question_text": f"Which week had more stable blood glucose: week {first_week} or week {second_week}?",
+                "answer": f"week {first_week}" if stats_a['cv'] < stats_b['cv'] else f"week {second_week}",
+                "answer_generation_rule": f"Compare CV (SD/mean) of glucose readings from week {first_week} and week {second_week}.",
+                "answer_instruction": f"Collect all glucose readings from week {first_week} and calculate their coefficient of variation by dividing the standard deviation by the mean and multiplying by 100, repeat the same calculation for week {second_week}, compare the two CV values, and return {first_week} if week {first_week} has the lower coefficient of variation; otherwise return {second_week}.",
+                "answer_type": "categorical",
+                "metric": "Accuracy",
+                "example_answer": f"week {first_week}",
+                "cognitive_level": "Memory",
+                "cognitive_atomic": "TR,QC,CA",
+                "question_prototype": "Stability"
+            })
 
         first_week_idx, second_week_idx = random.sample(range(num_weeks), 2)
         first_week, second_week = first_week_idx + 1, second_week_idx + 1
