@@ -651,7 +651,7 @@ def question_4(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_5(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
-    running_idx = find_recent_exercise_index(data.get("exercise_events", []), "running", 10 * SAMPLES_PER_DAY + 84)
+    running_idx = find_recent_exercise_index(data.get("exercise_events", []), "running", 28 * SAMPLES_PER_DAY + 84)
     end_idx = running_idx + 18
     bg_window = data["bg_mgdl"][running_idx : end_idx + 1]
     answer = "Yes" if min(bg_window) < 70 else "No"
@@ -671,8 +671,8 @@ def question_5(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_6(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
-    start_idx = 10 * SAMPLES_PER_DAY + 72
-    end_search_idx = 10 * SAMPLES_PER_DAY + 96
+    start_idx = 28 * SAMPLES_PER_DAY + 72
+    end_search_idx = 28 * SAMPLES_PER_DAY + 96
     carb_idx = find_carb_index_between(data.get("carb_events", []), start_idx * 5, end_search_idx * 5)
     end_idx = carb_idx + 12
     answer = data["bg_mgdl"][end_idx]
@@ -692,7 +692,7 @@ def question_6(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_7(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
-    running_idx = find_recent_exercise_index(data.get("exercise_events", []), "running", 15 * SAMPLES_PER_DAY + 84)
+    running_idx = find_recent_exercise_index(data.get("exercise_events", []), "running", 28 * SAMPLES_PER_DAY + 84)
     end_idx = running_idx + 9
     answer = data["bg_mgdl"][end_idx] - data["bg_mgdl"][running_idx]
 
@@ -711,7 +711,7 @@ def question_7(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_8(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
-    cycling_idx = find_recent_exercise_index(data.get("exercise_events", []), "cycling", 15 * SAMPLES_PER_DAY + 216)
+    cycling_idx = find_recent_exercise_index(data.get("exercise_events", []), "cycling", 28 * SAMPLES_PER_DAY + 216)
     end_idx = cycling_idx + 16
     answer = data["bg_mgdl"][end_idx] - data["bg_mgdl"][cycling_idx]
 
@@ -730,9 +730,9 @@ def question_8(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_9(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
-    main_idx = 15 * SAMPLES_PER_DAY
-    cycling_idx = find_recent_exercise_index(data.get("exercise_events", []), "cycling", 15 * SAMPLES_PER_DAY + 216, add_one=True)
-    running_idx = find_recent_exercise_index(data.get("exercise_events", []), "running", 15 * SAMPLES_PER_DAY + 84, add_one=True)
+    main_idx = 28 * SAMPLES_PER_DAY
+    cycling_idx = find_recent_exercise_index(data.get("exercise_events", []), "cycling", 28 * SAMPLES_PER_DAY + 216, add_one=True)
+    running_idx = find_recent_exercise_index(data.get("exercise_events", []), "running", 28 * SAMPLES_PER_DAY + 84, add_one=True)
     bg_diff_cycling = data["bg_mgdl"][cycling_idx + 4] - data["bg_mgdl"][cycling_idx]
     bg_diff_running = data["bg_mgdl"][running_idx + 6] - data["bg_mgdl"][running_idx]
     answer = choose_better_exercise(bg_diff_cycling, bg_diff_running)
@@ -752,8 +752,8 @@ def question_9(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_10(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
-    cut_idx = 24 * SAMPLES_PER_DAY + 168
-    future_values = data["bg_mgdl"][cut_idx : 25 * SAMPLES_PER_DAY]
+    cut_idx = 28 * SAMPLES_PER_DAY + 168
+    future_values = data["bg_mgdl"][cut_idx : 29 * SAMPLES_PER_DAY]
     answer = "Yes"
     for value in future_values:
         if value < 70 or value > 180:
@@ -804,9 +804,9 @@ def question_11(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_12(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
-    start_idx = 14 * SAMPLES_PER_DAY
-    cut_idx = 15 * SAMPLES_PER_DAY
-    end_idx = 16 * SAMPLES_PER_DAY
+    start_idx = 28 * SAMPLES_PER_DAY
+    cut_idx = 29 * SAMPLES_PER_DAY
+    end_idx = 30 * SAMPLES_PER_DAY
     current_average = mean(data["bg_mgdl"][start_idx:cut_idx])
     next_average = mean(data["bg_mgdl"][cut_idx:end_idx])
     answer = "Yes" if current_average > next_average else "No"
