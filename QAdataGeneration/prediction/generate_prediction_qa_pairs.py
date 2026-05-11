@@ -631,7 +631,7 @@ def question_3(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_4(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
-    cut_idx = 14 * SAMPLES_PER_DAY
+    cut_idx = 28 * SAMPLES_PER_DAY
     next_day = data["bg_mgdl"][cut_idx : cut_idx + SAMPLES_PER_DAY]
     count = sum(70 <= value <= 180 for value in next_day)
     answer = (count / len(next_day)) * 100
