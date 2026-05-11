@@ -237,11 +237,11 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
         "question_prototype": "Insulin demand forecasting",
     },
     19: {
-        "function_name": "predict_glucose_drop",
+        "function_name": "predict_glucose_change",
         "question_id": "pd_19",
-        "question_text": "if i take insulin now, how much will my blood glucose come down in the next 2 hours?",
-        "answer_generation_rule": "Assume that insulin will start working immediately and predict the blood glucose level in the next 2 hours.",
-        "answer_instruction": "Assume that insulin will start working immediately and predict the blood glucose level in the next 2 hours.",
+        "question_text": "If I take my breakfast insulin now, what will be the signed change in my blood glucose over the next 2 hours?",
+        "answer_generation_rule": "Assume the breakfast insulin bolus starts working immediately and predict the signed change in blood glucose over the next 2 hours. Return future blood glucose minus current blood glucose, where a positive value means blood glucose increases and a negative value means blood glucose decreases.",
+        "answer_instruction": "Assume the breakfast insulin bolus starts working immediately and predict the signed change in blood glucose over the next 2 hours. Return future blood glucose minus current blood glucose, where a positive value means blood glucose increases and a negative value means blood glucose decreases.",
         "answer_type": "float",
         "metric": "MAE",
         "cognitive_level": "Pattern",
@@ -827,11 +827,11 @@ def question_13(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
     if patient_index == 0:
-        cut_idx = 7 * SAMPLES_PER_DAY + 80
+        cut_idx = 28 * SAMPLES_PER_DAY + 80
     elif patient_index == 15:
-        cut_idx = 12 * SAMPLES_PER_DAY + 67
+        cut_idx = 28 * SAMPLES_PER_DAY + 67
     else:
-        cut_idx = 10 * SAMPLES_PER_DAY + 5
+        cut_idx = 28 * SAMPLES_PER_DAY + 5
     end_idx = cut_idx + 24
     answer = "Yes" if any(value > 10 for value in insulin_values[cut_idx : end_idx + 1]) else "No"
 
@@ -850,7 +850,7 @@ def question_13(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_14(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
-    cut_idx = 17 * SAMPLES_PER_DAY + 144
+    cut_idx = 27 * SAMPLES_PER_DAY + 144
     end_idx = cut_idx + 48
     start_value = data["bg_mgdl"][cut_idx]
     answer = "No"
@@ -874,7 +874,7 @@ def question_14(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_15(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
-    cut_idx = 23 * SAMPLES_PER_DAY
+    cut_idx = 28 * SAMPLES_PER_DAY
     end_idx = cut_idx + 72
     bg_window = data["bg_mgdl"][cut_idx : end_idx + 1]
     answer = "Yes" if any(value < 70 for value in bg_window) else "No"
@@ -939,10 +939,10 @@ def question_18(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_19(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
-    search_start = 13 * SAMPLES_PER_DAY + 72
+    search_start = 28 * SAMPLES_PER_DAY + 72
     first_insulin_offset = None
-    for idx in range(1, len(insulin_values[search_start : search_start + SAMPLES_PER_DAY])):
-        insulin_window = insulin_values[search_start : search_start + SAMPLES_PER_DAY]
+    insulin_window = insulin_values[search_start : search_start + SAMPLES_PER_DAY]
+    for idx in range(1, len(insulin_window)):
         if insulin_window[idx] - insulin_window[idx - 1] > 80:
             first_insulin_offset = idx
             break
@@ -951,7 +951,7 @@ def question_19(ctx: GenerationContext, patient_index: int, rng: random.Random):
 
     cut_idx = search_start + first_insulin_offset
     end_idx = cut_idx + 24
-    answer = data["bg_mgdl"][cut_idx] - data["bg_mgdl"][end_idx]
+    answer = data["bg_mgdl"][end_idx] - data["bg_mgdl"][cut_idx]
 
     qa = build_qa(patient_index, 19, answer, scaled_example(rng, answer, 13, 65))
     input_context = build_input_context(
@@ -968,7 +968,7 @@ def question_19(ctx: GenerationContext, patient_index: int, rng: random.Random):
 def question_20(ctx: GenerationContext, patient_index: int, rng: random.Random):
     data = ctx.simulation_data("normal_day", patient_index)
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
-    cut_idx = 13 * SAMPLES_PER_DAY
+    cut_idx = 27 * SAMPLES_PER_DAY
     end_idx = int(cut_idx + (SAMPLES_PER_DAY / 24) * 6)
     bg_chunks = array_split(data["bg_mgdl"][cut_idx : end_idx + 1], 6)
     unstable_hours = 0
