@@ -563,10 +563,12 @@ def question_1(ctx: GenerationContext, patient_index: int, rng: random.Random):
     insulin_values = ctx.insulin_values("insulin_input_normal.csv", patient_index)
     bg_values = data["bg_mgdl"]
 
-    if len(bg_values) <= 6:
-        raise ValueError("Not enough blood glucose values to sample 30 minutes ahead")
+    min_cut_idx = 28 * SAMPLES_PER_DAY
+    max_cut_idx = len(bg_values) - 7
+    if max_cut_idx < min_cut_idx:
+        raise ValueError("Not enough blood glucose values to sample 30 minutes ahead in day 29 or 30")
 
-    cut_idx = rng.randint(15, len(bg_values) - 7)
+    cut_idx = rng.randint(min_cut_idx, max_cut_idx)
     future_idx = cut_idx + 6
     answer = bg_values[future_idx]
     qa = build_qa(patient_index, 1, answer, scaled_example(rng, answer, 15, 45))
