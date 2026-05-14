@@ -77,7 +77,7 @@ def generate_questions_and_answers(patient_data):
         "question_text": "What was the patient's total insulin dose?",
         "answer": float(round(total_insulin, 1)),
         "answer_generation_rule": "Sum all insulin amounts from insulin events.",
-        "answer_instruction": "Identify all insulin events across the full monitoring period, including both basal and bolus insulin events, sum all recorded insulin amounts, and return the total rounded to one decimal place.",
+        "answer_instruction": "Identify all insulin events across the full monitoring period, including both basal and bolus insulin events, sum all recorded insulin dosage amounts, and return the total rounded to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
         "example_answer": 634.0,
