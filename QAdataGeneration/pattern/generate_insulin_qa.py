@@ -3,6 +3,8 @@ import os
 import random
 
 
+
+
 def generate_questions_and_answers(patient_data):
     """Generate questions and calculate ground truth answers."""
 
@@ -71,6 +73,7 @@ def generate_questions_and_answers(patient_data):
 
     # descriptive
     questions_and_answers.append({
+        "question_id": "pm_insulin_0",
         "question_text": "What was the patient's total insulin dose?",
         "answer": float(round(total_insulin, 1)),
         "answer_generation_rule": "Sum all insulin amounts from insulin events.",
@@ -85,6 +88,7 @@ def generate_questions_and_answers(patient_data):
 
     if largest_bolus_time_minutes is not None:
         questions_and_answers.append({
+            "question_id": "pm_insulin_1",
             "question_text": "When did the patient receive their largest insulin bolus?",
             "answer": int(largest_bolus_time_minutes),
             "answer_generation_rule": "Find the insulin event with the maximum insulin amount.",
@@ -105,6 +109,7 @@ def generate_questions_and_answers(patient_data):
 
         if day_key in daily_bg:
             questions_and_answers.append({
+                "question_id": "pm_insulin_2",
                 "question_text": f"What was the patient's total daily insulin dose on {day_name}?",
                 "answer": float(daily_bg[day_key]["total_insulin"]),
                 "answer_generation_rule": f"Sum all basal and bolus insulin amounts recorded throughout {day_name}, rounded to 1 decimal place.",
@@ -124,6 +129,7 @@ def generate_questions_and_answers(patient_data):
 
         if day_key in daily_bg and daily_bg[day_key]["largest_bolus_time_minutes"] is not None:
             questions_and_answers.append({
+                "question_id": "pm_insulin_3",
                 "question_text": f"When did the patient receive their largest insulin bolus on {day_name}?",
                 "answer": int(daily_bg[day_key]["largest_bolus_time_minutes"]),
                 "answer_generation_rule": f"Find the insulin bolus event with the highest insulin amount on {day_name} and return its timestamp.",
@@ -159,6 +165,7 @@ def generate_questions_and_answers(patient_data):
         avg_weekend_insulin = round(weekend_insulin / weekend_count, 1)
 
         questions_and_answers.append({
+            "question_id": "pm_insulin_4",
             "question_text": "Does the patient use more insulin on weekends in the first week?",
             "answer": "Yes" if avg_weekend_insulin > avg_weekday_insulin else "No",
             "answer_generation_rule": (
@@ -204,8 +211,12 @@ def process_jsonl_file(input_file, output_file, include_patient_data=True):
                     "patient_id": patient_data["patient_id"],
                     "qa_pairs": generate_questions_and_answers(patient_data)
                 }
-                for i, qa in enumerate(results["qa_pairs"]):
-                    qa["question_id"] = f"pm_insulin_{i}"
+                for qa in results["qa_pairs"]:
+                    if not qa.get("question_id"):
+                        raise ValueError(
+                            f"Missing hard-coded question_id for generated question: "
+                            f"{qa.get('question_text')!r}"
+                        )
 
                 if include_patient_data:
                     keys_to_include = ["carb_events", "insulin_events", "exercise_events", "bg_mgdl"]

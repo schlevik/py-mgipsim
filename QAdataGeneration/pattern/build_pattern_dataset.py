@@ -137,13 +137,22 @@ def load_patient_simulation_data(simulation_data_dir: Path, patient_index: int) 
     return json.loads(line)
 
 
-def add_question_ids(qa_pairs: list[dict[str, Any]], prefix: str) -> list[dict[str, Any]]:
-    indexed_pairs = []
+def validate_question_ids(qa_pairs: list[dict[str, Any]], expected_prefix: str) -> list[dict[str, Any]]:
+    validated_pairs = []
     for index, qa in enumerate(qa_pairs):
         qa_pair = dict(qa)
-        qa_pair["question_id"] = f"{prefix}{index}"
-        indexed_pairs.append(qa_pair)
-    return indexed_pairs
+        question_id = qa_pair.get("question_id")
+        if not question_id:
+            raise ValueError(
+                f"Missing hard-coded question_id for generated question at index {index}: "
+                f"{qa_pair.get('question_text')!r}"
+            )
+        if not str(question_id).startswith(expected_prefix):
+            raise ValueError(
+                f"Unexpected question_id {question_id!r}; expected prefix {expected_prefix!r}."
+            )
+        validated_pairs.append(qa_pair)
+    return validated_pairs
 
 
 def build_input_context(patient_data: dict[str, Any]) -> dict[str, Any]:
@@ -159,13 +168,13 @@ def build_pattern_patient_record(
     simulation_seed: int,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     with deterministic_builder_seed(simulation_seed + patient_index + GLUCOSE_BUILDER_OFFSET):
-        glucose_qa_pairs = add_question_ids(
+        glucose_qa_pairs = validate_question_ids(
             generate_glucose_questions_and_answers(patient_data),
             "pm_",
         )
 
     with deterministic_builder_seed(simulation_seed + patient_index + INSULIN_BUILDER_OFFSET):
-        insulin_qa_pairs = add_question_ids(
+        insulin_qa_pairs = validate_question_ids(
             generate_insulin_questions_and_answers(patient_data),
             "pm_insulin_",
         )

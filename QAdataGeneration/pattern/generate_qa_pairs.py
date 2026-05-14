@@ -62,6 +62,8 @@ def _safe_argmin(values):
     return int(finite_idx[np.argmin(arr[finite_idx])])
 
 
+
+
 def generate_questions_and_answers(patient_data):
     """Generate questions and calculate ground truth answers."""
     
@@ -384,6 +386,7 @@ def generate_questions_and_answers(patient_data):
     ########## Overall Statistics #############
     # Basic Statistics questions
     questions_and_answers.append({
+        "question_id": "pm_0",
         "question_text": "What was the patient's average blood glucose level?",
         "answer": _safe_round(avg_glucose, 1),
         "answer_generation_rule": "Calculate the mean of all blood glucose values.",
@@ -397,6 +400,7 @@ def generate_questions_and_answers(patient_data):
     })
    
     questions_and_answers.append({
+        "question_id": "pm_1",
         "question_text": "What was the highest blood glucose level recorded?",
         "answer": _safe_round(max_glucose, 1),
         "answer_generation_rule": "Find the maximum value in the blood glucose array.",
@@ -410,6 +414,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_2",
         "question_text": "What was the lowest blood glucose level recorded?",
         "answer": _safe_round(min_glucose, 1),
         "answer_generation_rule": "Find the minimum value in the blood glucose array.",
@@ -423,6 +428,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_3",
         "question_text": "When did the patient experience their highest blood glucose peak?",
         "answer": max_glucose_time_minutes,
         "answer_generation_rule": "Find the index of the maximum glucose value and convert to time in minutes.",
@@ -436,6 +442,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_4",
         "question_text": "How many hours did the patient spend in the target range (70-180 mg/dL)?",
         "answer": round(time_in_range_hours, 1),
         "answer_generation_rule": "Count minutes where glucose values are between 70-180 mg/dL, then convert to hours.",
@@ -450,6 +457,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_5",
         "question_text": "How many hours did the patient spend above the target range (> 180 mg/dL)?",
         "answer": round(time_above_range_hours, 1),
         "answer_generation_rule": "Count minutes where glucose values are above 180 mg/dL (do not include 180), then convert to hours.",
@@ -464,6 +472,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_6",
         "question_text": "How many hours did the patient spend below the target range (< 70 mg/dL)?",
         "answer": round(time_below_range_hours, 1),
         "answer_generation_rule": "Count minutes where glucose values are below 70 mg/dL (not including 70), then convert to hours.",
@@ -478,6 +487,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_7",
         "question_text": "How many hypoglycemic events (BG < 70 mg/dL) did the patient experience?",
         "answer": hypo_events,
         "answer_generation_rule": "Count the total number of blood glucose readings that are below 70 mg/dL (not including 70). Return the count as an integer.",
@@ -492,6 +502,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_8",
         "question_text": "How many hyperglycemic events (BG > 180 mg/dL) did the patient experience?",
         "answer": sum(above_range),
         "answer_generation_rule": "Count the total number of blood glucose readings that are above 180 mg/dL (not including 180). Return the count as an integer.",
@@ -506,6 +517,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_9",
         "question_text": "What was the standard deviation of the patient's glucose levels?",
         "answer": _safe_round(std_glucose, 1),
         "answer_generation_rule": "Calculate the standard deviation of all blood glucose values.",
@@ -519,6 +531,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_10",
         "question_text": "What's the time-in-range percentage for this patient?",
         "answer": round(time_in_range_percentage, 1),
         "answer_generation_rule": "Divide time in range (70-180 mg/dL) by total time, multiply by 100.",
@@ -533,6 +546,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_11",
         "question_text": "What's the time-above-range percentage for this patient?",
         "answer": round(time_above_range_percentage, 1),
         "answer_generation_rule": "Divide time above range (> 180 mg/dL not including 180) by total time, multiply by 100.",
@@ -547,6 +561,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_12",
         "question_text": "What's the time-below-range percentage for this patient?",
         "answer": round(time_below_range_percentage, 1),
         "answer_generation_rule": "Divide time below range (< 70 mg/dL not including 70) by total time, multiply by 100.",
@@ -561,6 +576,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_13",
         "question_text": "Did the patient experience any rapid glucose fluctuations (>2 mg/dL/min)?",
         "answer": "Yes" if has_rapid_fluctuations else "No",
         "answer_generation_rule": "Calculate rate of change between consecutive readings, check if any exceed 2 mg/dL/min.",
@@ -585,6 +601,7 @@ def generate_questions_and_answers(patient_data):
     day_name = f"week {week}, day {day_in_week}"
 
     questions_and_answers.append({
+        "question_id": "pm_14",
         "question_text": f"What was the average glucose reading between 2-4pm on {day_name}?",
         "answer": _safe_round(_safe_mean(daily_bg[day_key]["bg"][168:192]), 1),
         "answer_generation_rule": f"Filter readings for 2-4 pm on {day_name} and compute the mean.",
@@ -650,6 +667,7 @@ def generate_questions_and_answers(patient_data):
         higher_weekdays_weekends = "equal in both"
 
     questions_and_answers.append({
+        "question_id": "pm_15",
         "question_text": "What are the days where glucose are consistently stable?",
         "answer": stable_days,
         "answer_generation_rule": "Return a list of day indices (1-based) where glucose coefficient of variation is lower than 36.",
@@ -664,6 +682,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_16",
         "question_text": "On which day was the patient's glucose most variable?",
         "answer": most_variable_day,
         "answer_generation_rule": "Return the day index (1-based) with the highest coefficient of variation on that day.",
@@ -678,6 +697,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_17",
         "question_text": "On which day was the patient's glucose most stable?",
         "answer": most_stable_day,
         "answer_generation_rule": "Return the day index (1-based) with the lowest coefficient of variation on that day.",
@@ -692,6 +712,7 @@ def generate_questions_and_answers(patient_data):
 
     # Comparison questions
     questions_and_answers.append({
+        "question_id": "pm_18",
         "question_text": "Was glucose variability higher in the mornings or afternoons?",
         "answer": higher_period,
         "answer_generation_rule": "Calculate standard deviations of glucose values for 6am–12pm and 12pm–6pm periods across all days, and compare the averages.",
@@ -706,6 +727,7 @@ def generate_questions_and_answers(patient_data):
     })
 
     questions_and_answers.append({
+        "question_id": "pm_19",
         "question_text": "Are my glucose trends more stable on weekdays or weekend for the first week?",
         "answer": higher_weekdays_weekends,
         "answer_generation_rule": "Compare the glucose coefficient of variation on weekdays versus weekends.",
@@ -732,6 +754,7 @@ def generate_questions_and_answers(patient_data):
     if "lunch" in meal_responses.get(day_key, {}):
 
         questions_and_answers.append({
+            "question_id": "pm_20",
             "question_text": f"What was the peak glucose level after lunch on {day_name}?",
             "answer": round(meal_responses[day_key]['lunch']['peak'], 1),
             "answer_generation_rule": f"Find maximum glucose value in the post-lunch window (3 hours) on {day_name}.",
@@ -753,6 +776,7 @@ def generate_questions_and_answers(patient_data):
     ):
 
         questions_and_answers.append({
+            "question_id": "pm_21",
             "question_text": f"How long did it take for glucose levels to return to baseline after dinner on {day_name}?",
             "answer": meal_responses[day_key]['dinner']['time_to_baseline_min'],
             "answer_generation_rule": f"Find first time after peak when glucose returns to within 10% of pre-meal baseline on {day_name}, and calculate how long it took in minutes.",
@@ -770,6 +794,7 @@ def generate_questions_and_answers(patient_data):
     day_name = format_day_name(random_day)
     if "max_spike_meal" in meal_responses.get(day_key, {}):
         questions_and_answers.append({
+            "question_id": "pm_22",
             "question_text": f"Which meal caused the highest glucose rise on {day_name}?",
             "answer": meal_responses[day_key]['max_spike_meal'],
             "answer_generation_rule": f"Compare glucose rise (peak minus baseline) values for all meals in post-meal window (3 hours) to find largest increase on {day_name}.",
@@ -788,6 +813,7 @@ def generate_questions_and_answers(patient_data):
     if "morning_snack" in meal_responses.get(day_key, {}):
 
         questions_and_answers.append({
+            "question_id": "pm_23",
             "question_text": f"What was the glucose rise rate after the morning snack on {day_name}?",
             "answer": meal_responses[day_key]['morning_snack']['rise_rate_per_min'],
             "answer_generation_rule": f"Calculate rate of increase from baseline to 30-minute post-meal glucose on {day_name}.",
@@ -810,6 +836,7 @@ def generate_questions_and_answers(patient_data):
             heavy_dinner_days.append((day, spike))
 
     questions_and_answers.append({
+        "question_id": "pm_24",
         "question_text": "List all days with a carb-heavy dinner and the corresponding glucose spikes.",
         "answer": heavy_dinner_days,
         "answer_generation_rule": "Find days where the dinner meal has 80 or more carbs and report the glucose rise after dinner as (peak - baseline) in a 3 hour time window.",
@@ -829,6 +856,7 @@ def generate_questions_and_answers(patient_data):
     if "lunch" in meal_responses.get(day_key, {}):
 
         questions_and_answers.append({
+            "question_id": "pm_25",
             "question_text": f"What was the peak glucose level after lunch on {day_name}?",
             "answer": round(meal_responses[day_key]['lunch']['peak'], 1),
             "answer_generation_rule": f"Find maximum glucose value in the post-lunch window (3 hours) on {day_name}.",
@@ -850,6 +878,7 @@ def generate_questions_and_answers(patient_data):
 
     if day_key in exercise_responses:
         questions_and_answers.append({
+            "question_id": "pm_26",
             "question_text": f"What was the peak glucose level during exercise on {day_name}?",
             "answer": round(exercise_responses[day_key]['max_during'], 1),
             "answer_generation_rule": f"Find the maximum glucose level during the exercise period on {day_name}.",
@@ -871,6 +900,7 @@ def generate_questions_and_answers(patient_data):
         and exercise_responses[day_key]["time_to_baseline_min"] is not None
     ):
         questions_and_answers.append({
+            "question_id": "pm_27",
             "question_text": f"What was the lowest glucose level during exercise on {day_name}?",
             "answer": round(exercise_responses[day_key]['min_during'], 1),
             "answer_generation_rule": f"Find the minimum glucose level during the exercise period on {day_name}.",
@@ -889,6 +919,7 @@ def generate_questions_and_answers(patient_data):
 
     if day_key in exercise_responses:
         questions_and_answers.append({
+            "question_id": "pm_28",
             "question_text": f"What was the lowest glucose level after exercise on {day_name}?",
             "answer": round(exercise_responses[day_key]['post_nadir'], 1),
             "answer_generation_rule": f"Find the minimum glucose value within 180 minutes after exercise ends on {day_name}.",
@@ -907,6 +938,7 @@ def generate_questions_and_answers(patient_data):
 
     if day_key in exercise_responses:
         questions_and_answers.append({
+            "question_id": "pm_29",
             "question_text": f"What was the glucose rate of change after exercise on {day_name}?",
             "answer": exercise_responses[day_key]['rate_of_change'],
             "answer_generation_rule": f"Calculate the rate of glucose change in the first 60 minutes after exercise on {day_name}.",
@@ -928,6 +960,7 @@ def generate_questions_and_answers(patient_data):
         and exercise_responses[day_key]["time_to_baseline_min"] is not None
     ):
         questions_and_answers.append({
+            "question_id": "pm_30",
             "question_text": f"How long did it take for glucose levels to return to baseline after exercise on {day_name}?",
             "answer": exercise_responses[day_key]['time_to_baseline_min'],
             "answer_generation_rule": f"Find the first time after exercise ends when glucose returns to within 10% of the pre-exercise baseline on {day_name}.",
@@ -946,6 +979,7 @@ def generate_questions_and_answers(patient_data):
 
     if day_key in exercise_responses:
         questions_and_answers.append({
+            "question_id": "pm_31",
             "question_text": f"What was the patient's average glucose level within 1 hour after reported exercise on {day_name}?",
             "answer": round(exercise_responses[day_key]['post_mean'], 1),
             "answer_generation_rule": f"Compute the average glucose value for the 60 minutes following the end of exercise on {day_name}.",
@@ -964,6 +998,7 @@ def generate_questions_and_answers(patient_data):
 
     if day_key in exercise_responses:
         questions_and_answers.append({
+            "question_id": "pm_32",
             "question_text": f"What was the patient's average glucose level during reported exercise on {day_name}?",
             "answer": round(exercise_responses[day_key]['mean_during'], 1),
             "answer_generation_rule": f"Compute the average glucose value during exercise on {day_name}.",
@@ -982,6 +1017,7 @@ def generate_questions_and_answers(patient_data):
 
     if day_key in exercise_responses:
         questions_and_answers.append({
+            "question_id": "pm_33",
             "question_text": f"What was the maximum glucose drop following activity on {day_name}?",
             "answer": round(exercise_responses[day_key]['max_drop'], 1),
             "answer_generation_rule": f"Subtract the lowest post-exercise glucose value within 2 hour time window from the pre-exercise baseline on {day_name}.",
@@ -1000,6 +1036,7 @@ def generate_questions_and_answers(patient_data):
 
     if day_key in exercise_responses:
         questions_and_answers.append({
+            "question_id": "pm_34",
             "question_text": f"How long after exercise did the patient's glucose reach its lowest point on {day_name}?",
             "answer": exercise_responses[day_key]['time_to_lowest_post_exercise'],
             "answer_generation_rule": f"Find the time difference (in minutes) between exercise end and the post-exercise glucose nadir on {day_name}.",
@@ -1020,6 +1057,7 @@ def generate_questions_and_answers(patient_data):
 
 
     questions_and_answers.append({
+        "question_id": "pm_35",
         "question_text": "On which days does post-exercise glucose tend to be stable?",
         "answer": stable_days_after_exercise,
         "answer_generation_rule": "For each day with exercise, compute the coefficient of variation (CV) of glucose levels in the 60-minute post-exercise window. If CV is below 36, classify the day as stable",
@@ -1072,6 +1110,7 @@ def generate_questions_and_answers(patient_data):
         stats_b = all_weeks_stats[second_week_idx]
 
         questions_and_answers.append({
+            "question_id": "pm_36",
             "question_text": f"Did the patient spend less time in hypoglycemia in week {first_week} than in week {second_week}?",
             "answer": "yes" if stats_a['hypoglycemia_minutes'] < stats_b['hypoglycemia_minutes'] else "no",
             "answer_generation_rule": f"Sum minutes with glucose < 70 mg/dL in week {first_week} and week {second_week}, then compare.",
@@ -1091,6 +1130,7 @@ def generate_questions_and_answers(patient_data):
 
         if stats_a['cv'] is not None and stats_b['cv'] is not None:
             questions_and_answers.append({
+                "question_id": "pm_37",
                 "question_text": f"Which week had more stable blood glucose: week {first_week} or week {second_week}?",
                 "answer": f"week {first_week}" if stats_a['cv'] < stats_b['cv'] else f"week {second_week}",
                 "answer_generation_rule": f"Compare CV (SD/mean) of glucose readings from week {first_week} and week {second_week}.",
@@ -1109,6 +1149,7 @@ def generate_questions_and_answers(patient_data):
         stats_b = all_weeks_stats[second_week_idx]
 
         questions_and_answers.append({
+            "question_id": "pm_38",
             "question_text": f"How did the patient's time in range change from week {first_week} to week {second_week}?",
             "answer": (
                 "increased" if stats_b['tir_percent'] > stats_a['tir_percent']
@@ -1161,8 +1202,12 @@ def process_jsonl_file(input_file, output_file, include_patient_data=True):
                     "qa_pairs": generate_questions_and_answers(patient_data)
                 }
 
-                for i, qa in enumerate(results["qa_pairs"]):
-                    qa["question_id"] = f"pm_{i}"
+                for qa in results["qa_pairs"]:
+                    if not qa.get("question_id"):
+                        raise ValueError(
+                            f"Missing hard-coded question_id for generated question: "
+                            f"{qa.get('question_text')!r}"
+                        )
 
                 if include_patient_data:
                     keys_to_include = ['carb_events', 'insulin_events', 'exercise_events', 'bg_mgdl']
