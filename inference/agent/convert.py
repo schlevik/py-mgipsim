@@ -137,7 +137,8 @@ def convert(input_file, output_dir, limit=None):
 
             record = json.loads(line)
             patient_id = record["patient_id"]
-            output_file = output_dir / f"{patient_id}_{index}.csv"
+            question_id = record["question_id"]
+            output_file = output_dir / f"{patient_id}_question_{question_id}.csv"
             write_context_csv(record["input_context"], output_file)
             converted += 1
 

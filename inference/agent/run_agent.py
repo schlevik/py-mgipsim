@@ -27,6 +27,56 @@ class FinalAnswerAgentSchema(BaseModel):
   answer: str
 
 
+TOKENS_PER_MILLION = 1_000_000
+GPT_55_INPUT_RATE_PER_1M = 5.00
+GPT_55_CACHED_INPUT_RATE_PER_1M = 0.50
+GPT_55_OUTPUT_RATE_PER_1M = 30.00
+
+
+def _token_detail_value(details, key: str) -> int:
+  if details is None:
+    return 0
+  if isinstance(details, dict):
+    return details.get(key, 0) or 0
+  return getattr(details, key, 0) or 0
+
+
+def token_usage_and_cost_for_runs(*run_results):
+  usage = {
+    "workflow_input_tokens": 0,
+    "workflow_cached_input_tokens": 0,
+    "workflow_output_tokens": 0,
+    "workflow_total_tokens": 0,
+  }
+
+  for run_result in run_results:
+    for response in getattr(run_result, "raw_responses", []):
+      response_usage = getattr(response, "usage", None)
+      if response_usage is None:
+        continue
+
+      usage["workflow_input_tokens"] += getattr(response_usage, "input_tokens", 0) or 0
+      usage["workflow_output_tokens"] += getattr(response_usage, "output_tokens", 0) or 0
+      usage["workflow_total_tokens"] += getattr(response_usage, "total_tokens", 0) or 0
+      usage["workflow_cached_input_tokens"] += _token_detail_value(
+        getattr(response_usage, "input_tokens_details", None),
+        "cached_tokens",
+      )
+
+  uncached_input_tokens = max(
+    usage["workflow_input_tokens"] - usage["workflow_cached_input_tokens"],
+    0,
+  )
+  estimated_cost_usd = (
+    uncached_input_tokens * GPT_55_INPUT_RATE_PER_1M
+    + usage["workflow_cached_input_tokens"] * GPT_55_CACHED_INPUT_RATE_PER_1M
+    + usage["workflow_output_tokens"] * GPT_55_OUTPUT_RATE_PER_1M
+  ) / TOKENS_PER_MILLION
+
+  usage["workflow_estimated_cost_usd"] = round(estimated_cost_usd, 8)
+  return usage
+
+
 def create_container():
   api_key = os.getenv("OPENAI_API_KEY")
   client = OpenAI(api_key=api_key)
@@ -139,7 +189,7 @@ def get_coding_agent(args, container_id: str, file_id: str):
 
 # Main code entrypoint
 async def run_workflow(args, workflow_input: WorkflowInput, container_id: str, question_id: str, patient_id: str, file_id: str):
-  with trace(workflow_name=f"{args.data_type}_patient_{patient_id}_question_{question_id}", trace_id=f"trace_{args.data_type}_patient_{patient_id}_question_{question_id}"):
+  with trace(workflow_name="cost_run", trace_id=f"trace_{args.data_type}_patient_{patient_id}_question_{question_id}"):
 
     coding_agent, final_answer_agent = get_coding_agent(args, container_id, file_id)
 
@@ -186,7 +236,11 @@ async def run_workflow(args, workflow_input: WorkflowInput, container_id: str, q
 
     final_answer_agent_result = {
       "output_text": final_answer_agent_result_temp.final_output.json(),
-      "output_parsed": final_answer_agent_result_temp.final_output.model_dump()
+      "output_parsed": final_answer_agent_result_temp.final_output.model_dump(),
+      "workflow_usage": token_usage_and_cost_for_runs(
+        coding_agent_result_temp,
+        final_answer_agent_result_temp,
+      )
     }
     return final_answer_agent_result
 
@@ -207,15 +261,16 @@ async def run(args):
         for line in f:
             data.append(json.loads(line))
 
+    total_cost = 0
     with open(args.output_file, "w") as f:
       for h in range(0,len(data)):
 
           cur_data = data[h]
           patient_id = data[h]['patient_id']
-          
+          question_id = data[h]['question_id']
           print("patient id: ", patient_id)
           #upload file to container
-          file_path = f"{args.file_path}/{patient_id}_{h}.csv"
+          file_path = f"{args.file_path}/{patient_id}_question_{question_id}.csv"
           #f"/home/srini/time_series/loopqa/agent_data/yannan/insulin/patient_{patient_id}.csv"
           
           try:
@@ -242,11 +297,19 @@ async def run(args):
 
           dic = {}
           dic['question_id'] = question_id
+          dic['question'] = question
           dic['patient_id'] = patient_id
+          dic['file_used'] = file_path
+          dic['answer_instructions'] = answer_instructions
+          dic['answer_type'] = answer_type
+          dic['example_answer'] = example_answer
           dic['original_answer'] = original_answer
           dic['predicted_answer'] = result['output_parsed']['answer']
+          dic.update(result['workflow_usage'])
+          total_cost += result['workflow_usage']['workflow_estimated_cost_usd']
           print("original answer: ", original_answer)
           print("predicted answer: ", result['output_parsed']['answer'])
+          print("workflow estimated cost usd: ", result['workflow_usage']['workflow_estimated_cost_usd'])
           print("--------------------------------")
           json.dump(dic, f)
           f.write("\n")
@@ -255,7 +318,9 @@ async def run(args):
           delete_status = delete_file_from_container(file_id, container_id)
           print("delete status: ", delete_status)
 
-          break
+    
+
+    print("total cost: ", total_cost)
 
 if __name__ == "__main__":
     args = parse_args()
