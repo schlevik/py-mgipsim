@@ -318,7 +318,7 @@ def generate_questions_and_answers(patient_data):
             continue
 
         # During exercise
-        during_bg = bg_values[start_index : end_index]
+        during_bg = bg_values[start_index : end_index + 1]
         if _finite_values(during_bg).size == 0:
             continue
         min_during = _safe_min(during_bg)
@@ -603,9 +603,9 @@ def generate_questions_and_answers(patient_data):
     questions_and_answers.append({
         "question_id": "pm_14",
         "question_text": f"What was the average glucose reading between 2-4pm on {day_name}?",
-        "answer": _safe_round(_safe_mean(daily_bg[day_key]["bg"][168:192]), 1),
+        "answer": _safe_round(_safe_mean(daily_bg[day_key]["bg"][168:193]), 1),
         "answer_generation_rule": f"Filter readings for 2-4 pm on {day_name} and compute the mean.",
-        "answer_instruction": f"Extract glucose readings from 2-4 pm for {day_name}, compute the mean, and round to one decimal place.",
+        "answer_instruction": f"Extract glucose readings from 2-4 pm (inclusive) for {day_name}, compute the mean, and round to one decimal place.",
         "answer_type": "float",
         "metric": "MAE",
         "example_answer": 128.5,
@@ -731,7 +731,7 @@ def generate_questions_and_answers(patient_data):
         "question_text": "Are my glucose trends more stable on weekdays or weekend for the first week?",
         "answer": higher_weekdays_weekends,
         "answer_generation_rule": "Compare the glucose coefficient of variation on weekdays versus weekends.",
-        "answer_instruction": "Select one of the following options based on which period has more stable glucose: 'weekdays', 'weekend', or 'equal in both'.",
+        "answer_instruction": "Compare the glucose coefficient of variation on weekdays versus weekends. Select one of the following options based on which period has lower coefficient: 'weekdays', 'weekend', or 'equal in both'.",
         "answer_type": "categorical",
         "metric": "Accuracy", 
         "example_answer": "weekdays",
@@ -882,7 +882,7 @@ def generate_questions_and_answers(patient_data):
             "question_text": f"What was the peak glucose level during exercise on {day_name}?",
             "answer": round(exercise_responses[day_key]['max_during'], 1),
             "answer_generation_rule": f"Find the maximum glucose level during the exercise period on {day_name}.",
-            "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during this exercise period, find the maximum glucose value among those readings, and return it as a float rounded to one decimal place.",
+            "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during this exercise period inclusive of both the start and end times, find the maximum glucose value among those readings, and return it as a float rounded to one decimal place.",
             "answer_type": "float",
             "metric": "MAE",
             "example_answer": 125.5,
@@ -904,7 +904,7 @@ def generate_questions_and_answers(patient_data):
             "question_text": f"What was the lowest glucose level during exercise on {day_name}?",
             "answer": round(exercise_responses[day_key]['min_during'], 1),
             "answer_generation_rule": f"Find the minimum glucose level during the exercise period on {day_name}.",
-            "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during this exercise period, find the minimum glucose value among those readings, and return it as a float rounded to one decimal place.",
+            "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during this exercise period inclusive of both the start and end times, find the minimum glucose value among those readings, and return it as a float rounded to one decimal place.",
             "answer_type": "float",
             "metric": "MAE",
             "example_answer": 78.0,
@@ -922,8 +922,8 @@ def generate_questions_and_answers(patient_data):
             "question_id": "pm_30",
             "question_text": f"What was the lowest glucose level after exercise on {day_name}?",
             "answer": round(exercise_responses[day_key]['post_nadir'], 1),
-            "answer_generation_rule": f"Find the minimum glucose value within 180 minutes after exercise ends on {day_name}.",
-            "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 180-minute window following the end of exercise, find the minimum glucose value among those readings, and return it as a float rounded to one decimal place.",
+            "answer_generation_rule": f"Find the minimum glucose value within 2 hours after exercise ends on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 2-hour window following the end of exercise, find the minimum glucose value among those readings, and return it as a float rounded to one decimal place.",
             "answer_type": "float",
             "metric": "MAE",
             "example_answer": 85.2,
@@ -980,10 +980,10 @@ def generate_questions_and_answers(patient_data):
     if day_key in exercise_responses:
         questions_and_answers.append({
             "question_id": "pm_33",
-            "question_text": f"What was the patient's average glucose level within 1 hour after reported exercise on {day_name}?",
+            "question_text": f"What was the patient's average glucose level within 2 hours after reported exercise on {day_name}?",
             "answer": round(exercise_responses[day_key]['post_mean'], 1),
-            "answer_generation_rule": f"Compute the average glucose value for the 60 minutes following the end of exercise on {day_name}.",
-            "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 1-hour window immediately following exercise end, calculate the average of those glucose values, and return the result as a float rounded to one decimal place.",
+            "answer_generation_rule": f"Compute the average glucose value for the 2 hours following the end of exercise on {day_name}.",
+            "answer_instruction": f"Identify {day_name} and locate the end time of the exercise session, select all glucose readings within the 2-hour window immediately following exercise end, calculate the average of those glucose values, and return the result as a float rounded to one decimal place.",
             "answer_type": "float",
             "metric": "MAE",
             "example_answer": 112.5,
@@ -1002,7 +1002,7 @@ def generate_questions_and_answers(patient_data):
             "question_text": f"What was the patient's average glucose level during reported exercise on {day_name}?",
             "answer": round(exercise_responses[day_key]['mean_during'], 1),
             "answer_generation_rule": f"Compute the average glucose value during exercise on {day_name}.",
-            "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during the exercise period, calculate the average of those glucose values, and return the result as a float rounded to one decimal place.",
+            "answer_instruction": f"Identify {day_name} and locate the start and end times of the exercise session, select all glucose readings that occur during the exercise period inclusive of both the start and end times, calculate the average of those glucose values, and return the result as a float rounded to one decimal place.",
             "answer_type": "float",
             "metric": "MAE",
             "example_answer": 110.5,
@@ -1060,7 +1060,7 @@ def generate_questions_and_answers(patient_data):
         "question_id": "pm_37",
         "question_text": "On which days does post-exercise glucose tend to be stable?",
         "answer": stable_days_after_exercise,
-        "answer_generation_rule": "For each day with exercise, compute the coefficient of variation (CV) of glucose levels in the 60-minute post-exercise window. If CV is below 36, classify the day as stable",
+        "answer_generation_rule": "For each day with exercise, compute the coefficient of variation (CV) of glucose levels in the 2-hour post-exercise window. If CV is below 36, classify the day as stable",
         "answer_instruction": "Iterate over all days that contain an exercise session, for each day locate the end time of exercise, select all glucose readings within the 2-hour post-exercise window, calculate the coefficient of variation by dividing the standard deviation of those glucose values by their mean and multiplying by 100, identify the days where this value is less than 36, and return their 1-based day indices as a list.",
         "answer_type": "list of int",
         "metric": "F1",
