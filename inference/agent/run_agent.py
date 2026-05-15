@@ -18,6 +18,7 @@ def parse_args():
   parser.add_argument("--data_type", type=str, required=True)
   parser.add_argument("--model", type=str, required=True)
   parser.add_argument("--file_path", type=str, required=True)
+  parser.add_argument("--workflow_name", type=str, required=False, default=None)
   return parser.parse_args()
 
 class WorkflowInput(BaseModel):
@@ -28,9 +29,18 @@ class FinalAnswerAgentSchema(BaseModel):
 
 
 TOKENS_PER_MILLION = 1_000_000
-GPT_55_INPUT_RATE_PER_1M = 5.00
-GPT_55_CACHED_INPUT_RATE_PER_1M = 0.50
-GPT_55_OUTPUT_RATE_PER_1M = 30.00
+MODEL_PRICING_PER_1M = {
+  "gpt-5.5": {
+    "input": 5.00,
+    "cached_input": 0.50,
+    "output": 30.00,
+  },
+  "gpt-5.3-codex": {
+    "input": 1.75,
+    "cached_input": 0.175,
+    "output": 14.00,
+  },
+}
 
 
 def _token_detail_value(details, key: str) -> int:
@@ -41,7 +51,14 @@ def _token_detail_value(details, key: str) -> int:
   return getattr(details, key, 0) or 0
 
 
-def token_usage_and_cost_for_runs(*run_results):
+def _pricing_for_model(model: str):
+  normalized_model = model.strip().lower()
+  if normalized_model not in MODEL_PRICING_PER_1M:
+    raise ValueError(f"No token pricing configured for model: {model}")
+  return MODEL_PRICING_PER_1M[normalized_model]
+
+
+def token_usage_and_cost_for_runs(model: str, *run_results):
   usage = {
     "workflow_input_tokens": 0,
     "workflow_cached_input_tokens": 0,
@@ -67,10 +84,11 @@ def token_usage_and_cost_for_runs(*run_results):
     usage["workflow_input_tokens"] - usage["workflow_cached_input_tokens"],
     0,
   )
+  pricing = _pricing_for_model(model)
   estimated_cost_usd = (
-    uncached_input_tokens * GPT_55_INPUT_RATE_PER_1M
-    + usage["workflow_cached_input_tokens"] * GPT_55_CACHED_INPUT_RATE_PER_1M
-    + usage["workflow_output_tokens"] * GPT_55_OUTPUT_RATE_PER_1M
+    uncached_input_tokens * pricing["input"]
+    + usage["workflow_cached_input_tokens"] * pricing["cached_input"]
+    + usage["workflow_output_tokens"] * pricing["output"]
   ) / TOKENS_PER_MILLION
 
   usage["workflow_estimated_cost_usd"] = round(estimated_cost_usd, 8)
@@ -189,7 +207,7 @@ def get_coding_agent(args, container_id: str, file_id: str):
 
 # Main code entrypoint
 async def run_workflow(args, workflow_input: WorkflowInput, container_id: str, question_id: str, patient_id: str, file_id: str):
-  with trace(workflow_name="cost_run", trace_id=f"trace_{args.data_type}_patient_{patient_id}_question_{question_id}"):
+  with trace(workflow_name=args.workflow_name, trace_id=f"trace_{args.data_type}_patient_{patient_id}_question_{question_id}"):
 
     coding_agent, final_answer_agent = get_coding_agent(args, container_id, file_id)
 
@@ -238,11 +256,12 @@ async def run_workflow(args, workflow_input: WorkflowInput, container_id: str, q
       "output_text": final_answer_agent_result_temp.final_output.json(),
       "output_parsed": final_answer_agent_result_temp.final_output.model_dump(),
       "workflow_usage": token_usage_and_cost_for_runs(
+        args.model,
         coding_agent_result_temp,
         final_answer_agent_result_temp,
       )
     }
-    return final_answer_agent_result
+    return final_answer_agent_result, conversation_history
 
 
 
@@ -257,10 +276,17 @@ async def run(args):
 
     assert container_id is not None , "Container is not created"
 
-    with open(args.qa_file, "r") as f:
-        for line in f:
-            data.append(json.loads(line))
+    if args.qa_file.endswith(".json"):
+      print("QA file is a json file")
+      with open(args.qa_file, "r") as f:
+        data = json.load(f)
+    else:
+        print("QA file is a jsonl file")
+        with open(args.qa_file, "r") as f:
+            for line in f:
+                data.append(json.loads(line))
 
+    print("total number of questions: ", len(data))
     total_cost = 0
     with open(args.output_file, "w") as f:
       for h in range(0,len(data)):
@@ -272,7 +298,7 @@ async def run(args):
           #upload file to container
           file_path = f"{args.file_path}/{patient_id}_question_{question_id}.csv"
           #f"/home/srini/time_series/loopqa/agent_data/yannan/insulin/patient_{patient_id}.csv"
-          
+          print("using file: ", file_path)
           try:
               file_id = upload_file(file_path, container_id)
           except Exception as e:
@@ -282,19 +308,20 @@ async def run(args):
           assert file_id is not None , "File is not uploaded"
           print("question number" , h+1)
           #print("patient id: ", patient_id)
-
+    
           
         
           question = cur_data['question_text']
           original_answer = cur_data['answer']
-          question_id = cur_data['question_id']                
+          question_id = cur_data['question_id']  
+          print("question id: ", question_id)              
           answer_instructions = cur_data['answer_instruction']
           answer_type = cur_data['answer_type']
           example_answer = cur_data['example_answer']
           input_txt = f"The Question is: {question} \n The answer instructions are: {answer_instructions} \n The answer type is: {answer_type} \n An example answer is: {example_answer}"
           input_class = WorkflowInput(input_as_text=input_txt)
-          result = await run_workflow(args, input_class, container_id, question_id, patient_id, file_id)
-
+          result, conversation_history = await run_workflow(args, input_class, container_id, question_id, patient_id, file_id)
+          print("message traces: ", conversation_history)
           dic = {}
           dic['question_id'] = question_id
           dic['question'] = question
@@ -305,6 +332,11 @@ async def run(args):
           dic['example_answer'] = example_answer
           dic['original_answer'] = original_answer
           dic['predicted_answer'] = result['output_parsed']['answer']
+          dic['message_traces'] = conversation_history
+          dic['input_tokens'] = result['workflow_usage']['workflow_input_tokens']
+          dic['output_tokens'] = result['workflow_usage']['workflow_output_tokens']
+          dic['total_tokens'] = result['workflow_usage']['workflow_total_tokens']
+          dic['estimated_cost_usd'] = result['workflow_usage']['workflow_estimated_cost_usd']
           dic.update(result['workflow_usage'])
           total_cost += result['workflow_usage']['workflow_estimated_cost_usd']
           print("original answer: ", original_answer)
@@ -318,8 +350,7 @@ async def run(args):
           delete_status = delete_file_from_container(file_id, container_id)
           print("delete status: ", delete_status)
 
-    
-
+        
     print("total cost: ", total_cost)
 
 if __name__ == "__main__":
