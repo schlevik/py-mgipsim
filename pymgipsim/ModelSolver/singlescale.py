@@ -119,7 +119,8 @@ class SingleScaleSolver(SolverBase):
         else:
             """Initialize Fault Injection"""
             # Silicon states. Computed for the controller and will be affected when launching false CGM readings attack.
-            silicon_state_results = copy.copy(self.model.states.as_array)
+            # silicon_state_results = copy.copy(self.model.states.as_array)
+            controller_cgm_reading = copy.copy(state_results[:, self.model.output_state, :])
             faults_engine = FaultsInjection()
             faults_label = ['None'] * state_results.shape[-1]
             first_repeat = True
@@ -142,39 +143,43 @@ class SingleScaleSolver(SolverBase):
 
             for sample in tqdm(range(1, inputs.shape[2]), disable = no_progress_bar):
                 # inject cgm faults before controller.
+                true_last_bg = copy.copy(state_results[:, self.model.output_state, sample - 1])
                 if faults_array[sample - 1] in cgm_faults_ids:
                     f_label = faults_id_dict[faults_array[sample-1]]
 
-                    true_last_bg = copy.copy(state_results[:, self.model.output_state, sample - 1])
-                    silicon_state_results[:, :, sample - 1] = self.ode_solver(
-                        f=self.model.model,
-                        time=float(sample - 1),
-                        h=float(self.model.sampling_time),
-                        initial=silicon_state_results[:, :, sample - 2].copy(),
-                        parameters=parameters,
-                        inputs=current_input  # inputs[:, :, sample - 1]
-                    )
-
+                    # silicon_state_results[:, :, sample - 1] = self.ode_solver(
+                    #     f=self.model.model,
+                    #     time=float(sample - 1),
+                    #     h=float(self.model.sampling_time),
+                    #     initial=silicon_state_results[:, :, sample - 2].copy(),
+                    #     parameters=parameters,
+                    #     inputs=current_input  # inputs[:, :, sample - 1]
+                    # )
+                    true_last_bg_copy = copy.copy(true_last_bg)
                     if f_label == 'repeated_episode':
                         if first_repeat:
                             meal_episode_start = faults_utils.get_first_meal_index(carb_past=inputs[:, 1, :sample])
                             episode_dist = sample - 1 - meal_episode_start
                             first_repeat = False
-                        false_last_bg = faults_engine.run_cgm(f_label, bg=true_last_bg, bg_dist=episode_dist, bg_past=state_results[:, self.model.output_state, :sample])
+                        false_last_bg = faults_engine.run_cgm(f_label, bg=true_last_bg_copy, bg_dist=episode_dist, bg_past=state_results[:, self.model.output_state, :sample])
                     elif f_label == 'repeated_reading':
-                        false_last_bg = faults_engine.run_cgm(fault_type=f_label, bg=true_last_bg, bg_past=silicon_state_results[:, self.model.output_state, sample - 2])
+                        false_last_bg = faults_engine.run_cgm(fault_type=f_label, bg=true_last_bg_copy, bg_past=controller_cgm_reading[:, sample - 2])
                     else:
-                        false_last_bg = faults_engine.run_cgm(fault_type=f_label, bg=true_last_bg)
+                        false_last_bg = faults_engine.run_cgm(fault_type=f_label, bg=true_last_bg_copy)
+
+                    # if f_label == 'missing_signal':
+                    #     print('Missing')
 
                     faults_label[sample-1] = f_label
-                    silicon_state_results[:, self.model.output_state, sample-1] = false_last_bg.copy()
-
+                    # silicon_state_results[:, self.model.output_state, sample-1] = false_last_bg.copy()
+                    controller_cgm_reading[:, sample-1] = false_last_bg
                     # Keep real readings for the patient model and fake readings for the controller and display
                     self.controller.run(measurements=false_last_bg, inputs=inputs,
-                                        states=silicon_state_results, sample=sample - 1)
+                                        states=state_results, sample=sample - 1)
                 else:
-                    silicon_state_results[:, :, sample - 1] = copy.copy(state_results[:, :, sample - 1])
-                    self.controller.run(measurements=state_results[:, self.model.output_state, sample - 1],
+                    controller_cgm_reading[:, sample-1] = true_last_bg
+                    # silicon_state_results[:, :, sample - 1] = copy.copy(state_results[:, :, sample - 1])
+                    self.controller.run(measurements=true_last_bg,
                                         inputs=inputs, states=state_results, sample=sample-1)
 
                 # position 3 is the total insulin
@@ -198,7 +203,6 @@ class SingleScaleSolver(SolverBase):
                     if f_label not in ['unknown_stop', 'unknown_under', 'false_meal']:
                         inputs[:, 3, sample - 1] = f_basal
 
-
                 state_results[:, :, sample] = self.ode_solver(
                     f=self.model.model,
                     time=float(sample),
@@ -210,7 +214,7 @@ class SingleScaleSolver(SolverBase):
 
             # Pass the CGM data received by the controller
             # silicon_state_results[:, self.model.output_state, -1] = [0,0] due to not simulate in the last run
-            state_results[:, self.model.output_state, :-2] = silicon_state_results[:, self.model.output_state, :-2].copy()
+            state_results[:, self.model.output_state, :-2] = controller_cgm_reading[:, :-2].copy()
 
             self.model.states.as_array = state_results
             self.model.inputs.as_array = inputs

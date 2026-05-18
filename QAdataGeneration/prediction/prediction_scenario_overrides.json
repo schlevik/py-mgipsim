@@ -1,8 +1,12 @@
 {
     "normal_day": {
         "running_start_time": [
-            "05:00",
-            "07:00"
+            "08:00",
+            "09:30"
+        ],
+        "running_duration": [
+            20.0,
+            40.0
         ],
         "pm_snack_time_range": [
             900,
@@ -13,6 +17,7 @@
             660
         ],
         "running_speed": [
+            2.0,
             5.0
         ],
         "cycling_start_time": [
@@ -20,9 +25,11 @@
             "18:00"
         ],
         "cycling_duration": [
-            20.0
+            20.0,
+            40.0
         ],
         "cycling_power": [
+            70.0,
             90.0
         ]
     },
