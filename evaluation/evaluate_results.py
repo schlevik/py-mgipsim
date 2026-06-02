@@ -11,18 +11,16 @@ import re
 import numpy as np
 from typing import Dict, List, Any, Optional
 from collections import defaultdict
-from sklearn.metrics import mean_absolute_error
 import logging
 import ast
+import math
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Import affiliation metrics
 from util.affiliation.metrics import pr_from_events
-from dotenv import load_dotenv
-import math
-# Load environment variables from .env file
-load_dotenv()
+
+
 class ResultsEvaluator:
     def __init__(self):
         self.metric_functions = {
@@ -34,6 +32,9 @@ class ResultsEvaluator:
             'affinity-f1 score': self.compute_affinity_f1,
             'affinity f1 score': self.compute_affinity_f1
         }
+
+    def worst_affinity_f1_score(self) -> Dict[str, float]:
+        return {"precision": 0.0, "recall": 0.0, "f1": 0.0}
     
     def load_results(self, results_file: str, is_anomaly: bool = False) -> List[Dict[str, Any]]:
         """Load evaluation results from JSONL file."""
@@ -47,9 +48,134 @@ class ResultsEvaluator:
                             continue
                     results.append(dic)
         return results
+
+    def resolve_prediction(self, result: Dict[str, Any]) -> Any:
+        """Return the answer value emitted by current inference producers."""
+        parsed = result.get('llm_response_parsed')
+        if isinstance(parsed, dict) and 'answer' in parsed:
+            return parsed['answer']
+        return result.get('predicted_answer')
+
+    def resolve_expected(self, result: Dict[str, Any]) -> Any:
+        """Return the ground-truth answer value across old and current files."""
+        expected = result.get('expected_answer')
+        if expected is not None:
+            return expected
+        return result.get('original_answer', '')
+
+    def _parse_loose_answer_dict(self, text: str) -> Optional[Any]:
+        """Parse model output shaped like `{ answer: ... }`."""
+        match = re.fullmatch(r"\{\s*['\"]?answer['\"]?\s*:\s*(.*?)\s*,?\s*\}", text, flags=re.DOTALL)
+        if not match:
+            return None
+        return match.group(1).strip()
+
+    def extract_answer_field(self, value: Any) -> Any:
+        """Unwrap prediction objects that contain an answer field."""
+        coerced = self.coerce_answer_value(value)
+        if isinstance(coerced, dict) and 'answer' in coerced:
+            return self.coerce_answer_value(coerced['answer'])
+        return coerced
+
+    def coerce_answer_value(self, value: Any) -> Any:
+        """Parse serialized answer values while preserving ordinary text labels."""
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped == "":
+                return ""
+
+            if stripped.lower() in {"nan", "+nan", "-nan"}:
+                return math.nan
+
+            for parser in (json.loads, ast.literal_eval):
+                try:
+                    parsed = parser(stripped)
+                except (ValueError, SyntaxError, TypeError, json.JSONDecodeError):
+                    continue
+                if parsed is Ellipsis:
+                    continue
+                return self.coerce_answer_value(parsed)
+
+            loose_answer = self._parse_loose_answer_dict(stripped)
+            if loose_answer is not None:
+                return {"answer": self.coerce_answer_value(loose_answer)}
+
+            return stripped
+
+        if isinstance(value, list):
+            return [self.coerce_answer_value(item) for item in value]
+
+        if isinstance(value, tuple):
+            return [self.coerce_answer_value(item) for item in value]
+
+        if isinstance(value, dict):
+            return {key: self.coerce_answer_value(item) for key, item in value.items()}
+
+        return value
+
+    def _is_nan(self, value: Any) -> bool:
+        if isinstance(value, bool):
+            return False
+        try:
+            return math.isnan(float(value))
+        except (TypeError, ValueError):
+            return False
+
+    def _normalize_numeric_text(self, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+
+        text = value.strip().translate(str.maketrans({
+            "\u060c": ",",  # Arabic comma; models sometimes emit it before a number.
+            "\u066b": ".",  # Arabic decimal separator.
+            "\u066c": ",",  # Arabic thousands separator.
+        }))
+        text = text.strip(",")
+
+        number_pattern = r"[+-]?(?:(?:\d{1,3}(?:,\d{3})+)|(?:\d+))(?:\.\d+)?(?:[eE][+-]?\d+)?"
+        colon_prefixed_number = re.fullmatch(rf":\s*({number_pattern})", text)
+        if colon_prefixed_number:
+            text = colon_prefixed_number.group(1)
+
+        if re.fullmatch(r"[+-]?\d{1,3}(,\d{3})+(\.\d+)?([eE][+-]?\d+)?", text):
+            text = text.replace(",", "")
+
+        return text
+
+    def _to_float(self, value: Any, value_name: str, allow_nan: bool = False) -> float:
+        value = self._normalize_numeric_text(value)
+        if value is None or value == "" or isinstance(value, bool):
+            raise ValueError(f"Could not convert {value_name} to float: {value}")
+        try:
+            numeric_value = float(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"Could not convert {value_name} to float: {value}")
+
+        if not math.isfinite(numeric_value):
+            if allow_nan and math.isnan(numeric_value):
+                return numeric_value
+            raise ValueError(f"Could not convert {value_name} to finite float: {value}")
+
+        return numeric_value
+
+    def _to_numeric_list(self, value: Any, value_name: str, allow_nan: bool = False) -> List[float]:
+        value = self.coerce_answer_value(value)
+        if isinstance(value, list):
+            if not value:
+                raise ValueError(f"{value_name} numeric list is empty")
+            return [self._to_float(item, value_name, allow_nan=allow_nan) for item in value]
+        return [self._to_float(value, value_name, allow_nan=allow_nan)]
+
+    def _is_missing_prediction(self, value: Any) -> bool:
+        return value is None or value == ""
+
+    def compute_missing_mae_penalty(self, expected: Any) -> float:
+        exp_vals = self._to_numeric_list(expected, "expected", allow_nan=False)
+        return sum(abs(exp_val) for exp_val in exp_vals) / len(exp_vals)
     
     def normalize_answer(self, answer: Any) -> Any:
         """Normalize answers for comparison."""
+        answer = self.coerce_answer_value(answer)
         if isinstance(answer, str):
             # Handle string answers like "yes"/"no", "Unavailable"
             return answer.lower().strip()
@@ -70,7 +196,20 @@ class ResultsEvaluator:
         """Convert list of {start, end} dicts to list of (start, end) tuples."""
         if not intervals:
             return []
-        return [(interval['start'], interval['end']) for interval in intervals]
+
+        converted = []
+        for interval in intervals:
+            if isinstance(interval, dict) and 'start' in interval and 'end' in interval:
+                start = interval['start']
+                end = interval['end']
+            elif isinstance(interval, (list, tuple)) and len(interval) == 2:
+                start, end = interval
+            else:
+                raise ValueError(f"Invalid interval value: {interval}")
+
+            converted.append((self._to_float(start, "interval start"), self._to_float(end, "interval end")))
+
+        return converted
 
     def make_hashable(self, item: Any) -> Any:
         """Convert nested structures to hashable representations for set ops."""
@@ -190,67 +329,43 @@ class ResultsEvaluator:
                 return 0.0  # One empty, one not
             
             # Convert to sets for comparison
-            pred_set = set(tuple(item.items()) if isinstance(item, dict) else item for item in pred_norm)
-            exp_set = set(tuple(item.items()) if isinstance(item, dict) else item for item in exp_norm)
+            pred_set = {self.make_hashable(item) for item in pred_norm}
+            exp_set = {self.make_hashable(item) for item in exp_norm}
             
             intersection = len(pred_set & exp_set)
             union = len(pred_set | exp_set)
             return intersection / union if union > 0 else 0.0
         else:
             # For single values, exact match
+            if self._is_nan(pred_norm) and self._is_nan(exp_norm):
+                return 1.0
             return 1.0 if pred_norm == exp_norm else 0.0
     
     def compute_mae(self, predicted: Any, expected: Any) -> Optional[float]:
         """Compute Mean Absolute Error for numeric values."""
-        # Handle single numeric values
-        try:
-            expected = float(expected)
-        except:
-            raise ValueError(f"Could not convert expected to float: {expected}")
+        pred_vals = self._to_numeric_list(predicted, "predicted", allow_nan=True)
+        exp_vals = self._to_numeric_list(expected, "expected", allow_nan=True)
 
-        if isinstance(predicted, (int, float)) and isinstance(expected, (int, float)):
-            return abs(predicted - expected)
-        
-        # Handle lists of numeric values
-        if isinstance(predicted, list) and isinstance(expected, list):
-            if len(predicted) != len(expected):
-                raise ValueError("Predicted and expected lists have different lengths")
-            
-            # Check if all elements are numeric
-            try:
-                pred_nums = [float(x) for x in predicted]
-                exp_nums = [float(x) for x in expected]
-                return mean_absolute_error(exp_nums, pred_nums)
-            except (ValueError, TypeError):
-                logger.warning(f"Could not convert predicted or expected to float: {predicted} or {expected}")
-                return None
-        
-        # For other types, return None (not applicable)
-        return None
+        if len(pred_vals) != len(exp_vals):
+            raise ValueError("Predicted and expected lists have different lengths")
+
+        absolute_errors = []
+        for pred_val, exp_val in zip(pred_vals, exp_vals):
+            pred_nan = math.isnan(pred_val)
+            exp_nan = math.isnan(exp_val)
+            if pred_nan and exp_nan:
+                absolute_errors.append(0.0)
+            elif pred_nan or exp_nan:
+                raise ValueError(f"Cannot compute MAE with NaN mismatch: predicted={predicted}, expected={expected}")
+            else:
+                absolute_errors.append(abs(pred_val - exp_val))
+
+        return sum(absolute_errors) / len(absolute_errors)
 
     def compute_smape(self, predicted: Any, expected: Any) -> Optional[float]:
         """Compute Symmetric Mean Absolute Percentage Error for numeric values."""
-        
-        def to_numeric_list(value: Any) -> Optional[List[float]]:
-            if isinstance(value, list):
-                try:
-                    return [float(x) for x in value]
-                except (ValueError, TypeError):
-                    logger.warning(f"Could not convert predicted or expected to float: {predicted} or {expected}")
-                    return None
-            if isinstance(value, (int, float)):
-                return [float(value)]
-            try:
-                return [float(value)]
-            except (ValueError, TypeError):
-                logger.warning(f"Could not convert predicted or expected to float: {predicted} or {expected}")
-                return None
-
-        pred_vals = to_numeric_list(predicted)
-        exp_vals = to_numeric_list(expected)
-
-        if pred_vals is None or exp_vals is None or pred_vals == [] or exp_vals == []:
-            return None
+        pred_vals = self._to_numeric_list(predicted, "predicted", allow_nan=True)
+        exp_vals = self._to_numeric_list(expected, "expected", allow_nan=True)
 
         if len(pred_vals) != len(exp_vals):
             # Penalize mismatched lengths similarly to MAE
@@ -258,6 +373,15 @@ class ResultsEvaluator:
 
         smape_values = []
         for pred_val, exp_val in zip(pred_vals, exp_vals):
+            pred_nan = math.isnan(pred_val)
+            exp_nan = math.isnan(exp_val)
+            if pred_nan and exp_nan:
+                smape_values.append(0.0)
+                continue
+            if pred_nan or exp_nan:
+                smape_values.append(2.0)
+                continue
+
             denom = abs(pred_val) + abs(exp_val)
             if denom == 0:
                 smape_values.append(0.0)
@@ -314,6 +438,9 @@ class ResultsEvaluator:
         for start, end in intervals:
             if start is None or end is None:
                 continue
+            if not math.isfinite(start) or not math.isfinite(end):
+                logger.warning("Dropping non-finite interval (%s, %s)", start, end)
+                continue
             if start > end:
                 logger.warning("Swapping inverted interval (%s, %s)", start, end)
                 start, end = end, start
@@ -336,14 +463,21 @@ class ResultsEvaluator:
     def compute_affinity_f1(self, predicted: Any, expected: Any, trange: Optional[tuple] = None) -> Optional[Dict[str, float]]:
         """Compute Affinity F1 score for interval-based predictions."""
         # Convert predicted and expected to interval tuples
+        predicted = self.coerce_answer_value(predicted)
+        expected = self.coerce_answer_value(expected)
         
-        if isinstance(predicted, list) and isinstance(expected, list):
-            pred_intervals = self.convert_intervals_to_tuples(predicted) if predicted else []
-            pred_intervals.sort(key=lambda x: x[0])
-            exp_intervals = self.convert_intervals_to_tuples(expected) if expected else []
-            exp_intervals.sort(key=lambda x: x[0])
+        if not isinstance(expected, list):
+            raise ValueError(f"Expected intervals must be a list, got {type(expected).__name__}")
+
+        exp_intervals = self.convert_intervals_to_tuples(expected) if expected else []
+        if not isinstance(predicted, list):
+            pred_intervals = []
         else:
-            return None
+            try:
+                pred_intervals = self.convert_intervals_to_tuples(predicted) if predicted else []
+            except ValueError as error:
+                logger.warning("Scoring malformed predicted intervals as zero affinity F1: %s", error)
+                return self.worst_affinity_f1_score()
         
         # If both are empty, perfect match
         if not pred_intervals and not exp_intervals:
@@ -351,12 +485,19 @@ class ResultsEvaluator:
         
         # If one is empty and the other isn't, no overlap
         if not pred_intervals and exp_intervals:
-            return {"precision": 0.0, "recall": 0.0, "f1": 0.0}
+            return self.worst_affinity_f1_score()
         if pred_intervals and not exp_intervals:
-            return {"precision": 0.0, "recall": 0.0, "f1": 0.0}
+            return self.worst_affinity_f1_score()
         
-        # pred_intervals = self.sanitize_intervals(pred_intervals)
-        # exp_intervals = self.sanitize_intervals(exp_intervals)
+        pred_intervals = self.sanitize_intervals(pred_intervals)
+        exp_intervals = self.sanitize_intervals(exp_intervals)
+
+        if not pred_intervals and not exp_intervals:
+            return {"precision": 1.0, "recall": 1.0, "f1": 1.0}
+        if not pred_intervals and exp_intervals:
+            return self.worst_affinity_f1_score()
+        if pred_intervals and not exp_intervals:
+            return self.worst_affinity_f1_score()
         
         # Expand point anomalies to avoid the "Cannot manage point anomalies" error
         pred_intervals = self.expand_point_anomalies(pred_intervals)
@@ -452,11 +593,9 @@ class ResultsEvaluator:
     def evaluate_single_result(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """Evaluate a single result entry."""
     
-        predicted = result.get('llm_response_parsed')
-        if isinstance(predicted, dict) and 'answer' in predicted:
-            predicted = predicted['answer']
-        expected = result.get('expected_answer', '')
-        metric_type = result.get('metric', '').lower()
+        predicted = self.extract_answer_field(self.resolve_prediction(result))
+        expected = self.coerce_answer_value(self.resolve_expected(result))
+        metric_type = str(result.get('metric', '')).lower().strip()
 
         
         evaluation = {
@@ -474,41 +613,21 @@ class ResultsEvaluator:
             evaluation["score"] = 1
             return evaluation
 
-        
-        if metric_type == 'smape':
-            if math.isnan(expected):
-                if predicted == "" or not math.isnan(predicted):
-                    print(f"expected is nan for question {result['question_id']} but predicted is not nan, setting score for smape to 2")
-                    evaluation["score"] = 2.0 # set max score for smape
-                    print("*"*100)
-                    return evaluation
-                else:
-                    print(f"expected is nan for question {result['question_id']} and predicted is also nan, setting score for smape to 0")
-                    evaluation["score"] = 0.0 # set min score for smape
-                    print("*"*100)
-                    return evaluation
-
         if expected == "":
             raise ValueError(f"No expected answer found for question {result['question_id']}")
 
         if metric_type == "":
             raise ValueError(f"No metric type found for question {result['question_id']}")
         
-        if predicted == "" and metric_type not in numerical_metrics:
-            return evaluation
-
-        elif (predicted == "" or predicted is None) and metric_type in numerical_metrics and isinstance(expected, (int, float)):
-            print(f"Predicted value is {predicted if predicted is None else 'empty'} for question {result['question_id']} for patient {result.get('patient_id', 'unknown')} where metric type is {metric_type}. Setting predicted value to 0. Expected value is {expected}")
-            print("*"*100)
-            if expected == 0 or expected == 0.0:
-                predicted = 2.0 # set max score for mae and smape
-            else:
-                predicted = 0.0 # set min score for mae and smape
-
-       
-        
         if predicted is not None and expected is None:
             evaluation["score"] = 0
+            return evaluation
+
+        if metric_type == "mae" and self._is_missing_prediction(predicted):
+            score = self.compute_missing_mae_penalty(expected)
+            evaluation["score"] = score
+            evaluation["mae"] = score
+            evaluation["error"] = None
             return evaluation
       
         
@@ -519,14 +638,23 @@ class ResultsEvaluator:
                 evaluation["error"] = None
 
                 if metric_type in numerical_metrics:
-                    smape_score = self.compute_smape(predicted, expected)
-                    mae_score = self.compute_mae(predicted, expected)
-                    evaluation["smape"] = smape_score
-                    evaluation["mae"] = mae_score
+                    evaluation["smape"] = score if metric_type == "smape" else self.compute_smape(predicted, expected)
+                    if metric_type == "mae":
+                        evaluation["mae"] = score
+                    else:
+                        try:
+                            evaluation["mae"] = self.compute_mae(predicted, expected)
+                        except ValueError as secondary_error:
+                            logger.warning(
+                                "Could not compute secondary MAE for question %s: %s",
+                                result['question_id'],
+                                secondary_error,
+                            )
+                            evaluation["mae"] = None
 
-                if metric_type == "accuracy":
-                    random_guess_baseline_score = self.compute_random_guess_baseline(result, expected)
-                    evaluation["random_guess_baseline"] = random_guess_baseline_score
+                # if metric_type == "accuracy":
+                #     random_guess_baseline_score = self.compute_random_guess_baseline(result, expected)
+                #     evaluation["random_guess_baseline"] = random_guess_baseline_score
             except Exception as e:
                 logger.warning(f"Error evaluating question {result['question_id']}: {str(e)}")
                 evaluation["score"] = None
@@ -534,7 +662,9 @@ class ResultsEvaluator:
                 return evaluation
 
         else:
-            
+            print("---" * 100)
+            print("in branch 2" , expected, predicted, metric_type)
+            print("---" * 100)
             if isinstance(expected, dict) and isinstance(predicted, dict):
                 score = 0
                 count = 0
@@ -570,33 +700,16 @@ class ResultsEvaluator:
                 print("score: ", evaluation.get("score", None))
                 print("error: ", evaluation['error'])
                 print("result: ", result['question_id']) 
-                print("expected: ", result['expected_answer'], type(result['expected_answer'])) 
-                print("llm_response_parsed: ", result['llm_response_parsed'])
+                print("original_answer: ", result.get('original_answer'), type(result.get('original_answer')))
+                print("resolved_prediction: ", self.resolve_prediction(result))
                 print("metric: ", result.get('metric', ''))
                 print("*"*100)
+                continue
                 raise ValueError(f"Error evaluating question {result['question_id']}: {evaluation['error']}")
-            
-            if 'smape' in evaluation and evaluation['smape'] is not None:
-                    metric_scores['smape'].append(evaluation['smape'])
-            
-            if 'random_guess_baseline' in evaluation and evaluation['random_guess_baseline'] is not None:
-                metric_scores['accuracy_random_guess_baseline'].append(evaluation['random_guess_baseline'])
-            
-            # score returned from metric is None, so manually set score to 0.0.
-            if evaluation.get("score") is None and (evaluation.get("metric_type") != "mae" or evaluation.get("metric_type") != "smape"):
-                if evaluation.get("metric_type") == "affinity f-score":
-                    evaluation['score'] =  {"precision": 0.0, "recall": 0.0, "f1": 0.0}
-                    print("*"*100)
-                    print(f"No score available for question {evaluation['question_id']}, therefore setting score to 0.0")
-                    print(evaluation)
-                    print("*"*100)
-                else:
-                    evaluation['score'] = 0.0
-                    print("*"*100)
-                    print(f"No score available for question {evaluation['question_id']}, therefore setting score to 0.0")
-                    print(evaluation)
-                    print("*"*100)
-            
+
+            # if 'random_guess_baseline' in evaluation and evaluation['random_guess_baseline'] is not None:
+            #     metric_scores['accuracy_random_guess_baseline'].append(evaluation['random_guess_baseline'])
+
             #print(evaluation)
             evaluations.append(evaluation)
             # Collect scores by metric type

@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+load_dotenv("./../.env")
 from agents import CodeInterpreterTool, Agent, ModelSettings, TResponseInputItem, Runner, RunConfig, trace
 from pydantic import BaseModel
 from openai.types.shared.reasoning import Reasoning
@@ -9,21 +10,110 @@ from openai import OpenAI
 
 import argparse 
 
+with open("prompt.txt", "r") as f:
+  prompt = f.read()
 
 def parse_args():
   parser = argparse.ArgumentParser()
   parser.add_argument("--qa_file", type=str, required=True)
-  parser.add_argument("--input_file", type=str, required=True)
   parser.add_argument("--output_file", type=str, required=True)
+  parser.add_argument("--data_type", type=str, required=True)
+  parser.add_argument("--model", type=str, required=True)
+  parser.add_argument("--file_path", type=str, required=True)
+  parser.add_argument("--workflow_name", type=str, required=False, default=None)
   return parser.parse_args()
-
-load_dotenv(override=True)
 
 class WorkflowInput(BaseModel):
   input_as_text: str
 
 class FinalAnswerAgentSchema(BaseModel):
   answer: str
+
+
+TOKENS_PER_MILLION = 1_000_000
+MODEL_PRICING_PER_1M = {
+  "gpt-5.5": {
+    "input": 5.00,
+    "cached_input": 0.50,
+    "output": 30.00,
+  },
+  "gpt-5.3-codex": {
+    "input": 1.75,
+    "cached_input": 0.175,
+    "output": 14.00,
+  },
+  "gpt-5.2": {
+    "input": 1.75,
+    "cached_input": 0.175,
+    "output": 14.00,
+  },
+  "gpt-5.4": {
+    "input": 2.50,
+    "cached_input": 0.25,
+    "output": 15.00,
+  }
+}
+
+
+def _token_detail_value(details, key: str) -> int:
+  if details is None:
+    return 0
+  if isinstance(details, dict):
+    return details.get(key, 0) or 0
+  return getattr(details, key, 0) or 0
+
+
+def _pricing_for_model(model: str):
+  normalized_model = model.strip().lower()
+  if normalized_model not in MODEL_PRICING_PER_1M:
+    raise ValueError(f"No token pricing configured for model: {model}")
+  return MODEL_PRICING_PER_1M[normalized_model]
+
+
+def token_usage_and_cost_for_runs(model: str, *run_results):
+  usage = {
+    "workflow_input_tokens": 0,
+    "workflow_cached_input_tokens": 0,
+    "workflow_output_tokens": 0,
+    "workflow_total_tokens": 0,
+  }
+
+  for run_result in run_results:
+    for response in getattr(run_result, "raw_responses", []):
+      response_usage = getattr(response, "usage", None)
+      if response_usage is None:
+        continue
+
+      usage["workflow_input_tokens"] += getattr(response_usage, "input_tokens", 0) or 0
+      usage["workflow_output_tokens"] += getattr(response_usage, "output_tokens", 0) or 0
+      usage["workflow_total_tokens"] += getattr(response_usage, "total_tokens", 0) or 0
+      usage["workflow_cached_input_tokens"] += _token_detail_value(
+        getattr(response_usage, "input_tokens_details", None),
+        "cached_tokens",
+      )
+
+  uncached_input_tokens = max(
+    usage["workflow_input_tokens"] - usage["workflow_cached_input_tokens"],
+    0,
+  )
+  pricing = _pricing_for_model(model)
+  estimated_cost_usd = (
+    uncached_input_tokens * pricing["input"]
+    + usage["workflow_cached_input_tokens"] * pricing["cached_input"]
+    + usage["workflow_output_tokens"] * pricing["output"]
+  ) / TOKENS_PER_MILLION
+
+  usage["workflow_estimated_cost_usd"] = round(estimated_cost_usd, 8)
+  return usage
+
+
+def create_container():
+  api_key = os.getenv("OPENAI_API_KEY")
+  client = OpenAI(api_key=api_key)
+  container = client.containers.create(
+    name="eval_container")
+  
+  return container.id
 
 def get_container_id():
     api_key = os.getenv("OPENAI_API_KEY")
@@ -85,7 +175,8 @@ def delete_file_from_container(file_id, container_id):
     response = requests.delete(url, headers=headers)
     return response.json()
 
-def get_coding_agent(container_id: str):
+def get_coding_agent(args, container_id: str, file_id: str):
+  print("model: ", args.model)
   code_interpreter = CodeInterpreterTool(tool_config={
     "type": "code_interpreter",
     "container": container_id
@@ -94,7 +185,7 @@ def get_coding_agent(container_id: str):
   coding_agent = Agent(
     name="Coding_agent",
     instructions="You will be given a user question that you have to answer. You will also be given instruction to get the answer, answer type and answer generation rule. Use python code to get to the answer.  You are given the patients data in the form of a csv file. ",
-    model="gpt-5.1",
+    model=args.model,
     tools=[
       code_interpreter
     ],
@@ -114,7 +205,7 @@ def get_coding_agent(container_id: str):
   {
   answer: final_answer
   }""",
-    model="gpt-5.1",
+    model=args.model,
     output_type=FinalAnswerAgentSchema,
     model_settings=ModelSettings(
       store=True,
@@ -128,14 +219,11 @@ def get_coding_agent(container_id: str):
   return coding_agent, final_answer_agent
 
 # Main code entrypoint
-async def run_workflow(workflow_input: WorkflowInput, container_id: str, question_id: str, patient_id: str):
-  with trace(workflow_name=f"Agent_trace_for_paper_{question_id}_patient_{patient_id}", trace_id=f"trace_agent_for_paper_{question_id}_{patient_id}"):
-    state = {
-      "file_path": None
-    }
+async def run_workflow(args, workflow_input: WorkflowInput, container_id: str, question_id: str, patient_id: str, file_id: str):
+  with trace(workflow_name=args.workflow_name, trace_id=f"trace_{args.data_type}_patient_{patient_id}_question_{question_id}"):
 
-    coding_agent, final_answer_agent = get_coding_agent(container_id)
-    
+    coding_agent, final_answer_agent = get_coding_agent(args, container_id, file_id)
+
     workflow = workflow_input.model_dump()
     conversation_history: list[TResponseInputItem] = [
       {
@@ -152,7 +240,11 @@ async def run_workflow(workflow_input: WorkflowInput, container_id: str, questio
       coding_agent,
       input=[
         *conversation_history
-      ]
+      ],
+      run_config=RunConfig(trace_metadata={
+        "__trace_source__": "agent-builder",
+        "workflow_id": "wf_692291af37788190988f392bd8c107830c08f66636716dbc"
+      })
     )
 
     conversation_history.extend([item.to_input_item() for item in coding_agent_result_temp.new_items])
@@ -164,69 +256,119 @@ async def run_workflow(workflow_input: WorkflowInput, container_id: str, questio
       final_answer_agent,
       input=[
         *conversation_history
-      ]
+      ],
+      run_config=RunConfig(trace_metadata={
+        "__trace_source__": "agent-builder",
+        "workflow_id": "wf_692291af37788190988f392bd8c107830c08f66636716dbc"
+      })
     )
 
     conversation_history.extend([item.to_input_item() for item in final_answer_agent_result_temp.new_items])
 
     final_answer_agent_result = {
       "output_text": final_answer_agent_result_temp.final_output.json(),
-      "output_parsed": final_answer_agent_result_temp.final_output.model_dump()
+      "output_parsed": final_answer_agent_result_temp.final_output.model_dump(),
+      "workflow_usage": token_usage_and_cost_for_runs(
+        args.model,
+        coding_agent_result_temp,
+        final_answer_agent_result_temp,
+      )
     }
-    return final_answer_agent_result
+    return final_answer_agent_result, conversation_history
 
 
 
 async def run(args):
     import json
+    
     data = []
+    #create container
+    container_id = create_container()
 
-    container_id, status = get_container_id()
-    file_ids = get_file_ids(container_id)
-    assert status != "expired" , "Container is not available"
-    assert file_ids == [] , "Enusre no files are present in the container"
+    print("container id: ", container_id)
 
-    with open(args.qa_file, "r") as f:
-        for line in f:
-            data.append(json.loads(line))
+    assert container_id is not None , "Container is not created"
 
-    for h in range(0,len(data)):
-        patient_idx = h
-        patient_id = data[patient_idx]['patient_id']
+    if args.qa_file.endswith(".json"):
+      print("QA file is a json file")
+      with open(args.qa_file, "r") as f:
+        data = json.load(f)
+    else:
+        print("QA file is a jsonl file")
+        with open(args.qa_file, "r") as f:
+            for line in f:
+                data.append(json.loads(line))
 
-        #upload file to container
-        file_path = f"{args.input_file}"
-        #f"/home/srini/time_series/loopqa/agent_data/yannan/insulin/patient_{patient_id}.csv"
-        file_id = upload_file(file_path, container_id)
-        print("question number" , h+1)
-        #print("patient id: ", patient_id)
+    print("total number of questions: ", len(data))
+    total_cost = 0
+    with open(args.output_file, "w") as f:
+      for h in range(0,len(data)):
+          cur_data = data[h]
+          patient_id = data[h]['patient_id']
+          question_id = data[h]['question_id']
+          print("patient id: ", patient_id)
+          print("question number" , h+1)
+          print("qa count: ", h)
+          
+          
+          #upload file to container
+          file_path = f"{args.file_path}/{patient_id}_question_{question_id}_{h}.csv"
 
-        with open(args.output_file, "w") as f:
-            for j,i in enumerate(data[patient_idx]['qa_pairs']):
-                print(f"Question: {j+1}")
-                question = i['question_text']
-                original_answer = i['answer']
-                question_id = i['question_id']                
-                answer_instructions = i['answer_instruction']
-                answer_type = i['answer_type']
-                example_answer = i['example_answer']
-                input_txt = f"The Question is: {question} \n The answer instructions are: {answer_instructions} \n The answer type is: {answer_type} \n An example answer is: {example_answer}"
-                input_class = WorkflowInput(input_as_text=input_txt)
-                result = await run_workflow(input_class, container_id, question_id, patient_id)
-                dic = {}
-                dic['question_id'] = question_id
-                dic['patient_id'] = patient_id
-                dic['original_answer'] = original_answer
-                dic['predicted_answer'] = result['output_parsed']['answer']
-                print("original answer: ", original_answer)
-                print("predicted answer: ", result['output_parsed']['answer'])
-                print("--------------------------------")
-                json.dump(dic, f)
-                f.write("\n")
+          assert os.path.isfile(file_path), f"File does not exist: {file_path}"
+     
+          #f"/home/srini/time_series/loopqa/agent_data/yannan/insulin/patient_{patient_id}.csv"
+          print("using file: ", file_path)
+          try:
+              file_id = upload_file(file_path, container_id)
+          except Exception as e:
+              print("error uploading file: ", e)
+              continue
+          assert file_id is not None , "File is not uploaded"
+          #print("patient id: ", patient_id)
+    
+          
+        
+          question = cur_data['question_text']
+          original_answer = cur_data['answer']
+          question_id = cur_data['question_id']  
+          print("question id: ", question_id)              
+          answer_instructions = cur_data['answer_instruction']
+          answer_type = cur_data['answer_type']
+          example_answer = cur_data['example_answer']
+          input_txt = prompt.format(question=question, answer_instruction=answer_instructions, answer_type=answer_type, example_answer=example_answer)
+          input_class = WorkflowInput(input_as_text=input_txt)
+          result, conversation_history = await run_workflow(args, input_class, container_id, question_id, patient_id, file_id)
+          print("message traces: ", conversation_history)
+          dic = {}
+          dic['question_id'] = question_id
+          dic['question'] = question
+          dic['patient_id'] = patient_id
+          dic['file_used'] = file_path
+          dic['input_txt'] = input_txt
+          dic['answer_instructions'] = answer_instructions
+          dic['answer_type'] = answer_type
+          dic['example_answer'] = example_answer
+          dic['original_answer'] = original_answer
+          dic['predicted_answer'] = result['output_parsed']['answer']
+          dic['message_traces'] = conversation_history
+          dic['input_tokens'] = result['workflow_usage']['workflow_input_tokens']
+          dic['output_tokens'] = result['workflow_usage']['workflow_output_tokens']
+          dic['total_tokens'] = result['workflow_usage']['workflow_total_tokens']
+          dic['estimated_cost_usd'] = result['workflow_usage']['workflow_estimated_cost_usd']
+          dic.update(result['workflow_usage'])
+          total_cost += result['workflow_usage']['workflow_estimated_cost_usd']
+          print("original answer: ", original_answer)
+          print("predicted answer: ", result['output_parsed']['answer'])
+          print("workflow estimated cost usd: ", result['workflow_usage']['workflow_estimated_cost_usd'])
+          print("--------------------------------")
+          json.dump(dic, f)
+          f.write("\n")
 
-        #delete file from container
-        delete_status = delete_file_from_container(file_id, container_id)
-        print("delete status: ", delete_status)
+          #delete file from container
+          delete_status = delete_file_from_container(file_id, container_id)
+          print("delete status: ", delete_status)
+        
+    print("total cost: ", total_cost)
 
 if __name__ == "__main__":
     args = parse_args()
