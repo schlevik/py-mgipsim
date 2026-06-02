@@ -71,9 +71,23 @@ def format_plain_number(value):
 
 def build_insulin_by_time(insulin_events):
     insulin_by_time = defaultdict(float)
-    for event in insulin_events:
+
+    if isinstance(insulin_events, dict):
+        for index, dosage in enumerate(insulin_events.get("magnitude", [])):
+            timestamp = index * SAMPLE_INTERVAL_MINUTES
+            insulin_by_time[timestamp] += float(dosage)
+        return insulin_by_time
+
+    for index, event in enumerate(insulin_events or []):
+        if isinstance(event, (int, float)):
+            timestamp = index * SAMPLE_INTERVAL_MINUTES
+            insulin_by_time[timestamp] += float(event)
+            continue
+
         timestamp = nearest_sample_time(event["time"])
-        insulin_by_time[timestamp] += float(event.get("dosage", 0.0))
+        insulin_by_time[timestamp] += float(
+            event.get("insulin_mUmin", event.get("dosage", 0.0))
+        )
     return insulin_by_time
 
 
@@ -100,10 +114,16 @@ def build_other_events_by_time(carb_events, exercise_events):
 
 def write_context_csv(context, output_file):
     bg_values = context["bg_mgdl"]
-    insulin_by_time = build_insulin_by_time(context.get("insulin_events", []))
+    insulin_source = context.get("insulin_mUmin", context.get("insulin_events", []))
+    insulin_by_time = build_insulin_by_time(insulin_source)
+    exercise_events = context.get("exercise_events")
+    if exercise_events is None:
+        exercise_events = context.get("running_events", []) + context.get(
+            "cycling_events", []
+        )
     other_events_by_time = build_other_events_by_time(
         context.get("carb_events", []),
-        context.get("exercise_events", []),
+        exercise_events,
     )
 
     with output_file.open("w", newline="") as csv_file:
@@ -129,7 +149,8 @@ def write_context_csv(context, output_file):
 def convert(input_file, output_dir, limit=None):
     output_dir.mkdir(parents=True, exist_ok=True)
     converted = 0
-
+    qa_count = 0
+            
     with input_file.open("r") as jsonl_file:
         for index, line in enumerate(jsonl_file):
             if limit is not None and converted >= limit:
@@ -137,10 +158,21 @@ def convert(input_file, output_dir, limit=None):
 
             record = json.loads(line)
             patient_id = record["patient_id"]
-            question_id = record["question_id"]
-            output_file = output_dir / f"{patient_id}_question_{question_id}.csv"
-            write_context_csv(record["input_context"], output_file)
-            converted += 1
+            if "qa_pairs" in record:
+                print("QA pairs found")
+                for qa in record["qa_pairs"]:
+                    if limit is not None and converted >= limit:
+                        break
+                    question_id = qa["question_id"]
+                    output_file = output_dir / f"{patient_id}_question_{question_id}_{qa_count}.csv"
+                    write_context_csv(record["input_context"], output_file)
+                    converted += 1
+                    qa_count += 1
+            else:
+                question_id = record["question_id"]
+                output_file = output_dir / f"{patient_id}_question_{question_id}.csv"
+                write_context_csv(record["input_context"], output_file)
+                converted += 1
 
     return converted
 

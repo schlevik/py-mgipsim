@@ -10,6 +10,8 @@ from openai import OpenAI
 
 import argparse 
 
+with open("prompt.txt", "r") as f:
+  prompt = f.read()
 
 def parse_args():
   parser = argparse.ArgumentParser()
@@ -40,6 +42,16 @@ MODEL_PRICING_PER_1M = {
     "cached_input": 0.175,
     "output": 14.00,
   },
+  "gpt-5.2": {
+    "input": 1.75,
+    "cached_input": 0.175,
+    "output": 14.00,
+  },
+  "gpt-5.4": {
+    "input": 2.50,
+    "cached_input": 0.25,
+    "output": 15.00,
+  }
 }
 
 
@@ -164,6 +176,7 @@ def delete_file_from_container(file_id, container_id):
     return response.json()
 
 def get_coding_agent(args, container_id: str, file_id: str):
+  print("model: ", args.model)
   code_interpreter = CodeInterpreterTool(tool_config={
     "type": "code_interpreter",
     "container": container_id
@@ -290,13 +303,19 @@ async def run(args):
     total_cost = 0
     with open(args.output_file, "w") as f:
       for h in range(0,len(data)):
-
           cur_data = data[h]
           patient_id = data[h]['patient_id']
           question_id = data[h]['question_id']
           print("patient id: ", patient_id)
+          print("question number" , h+1)
+          print("qa count: ", h)
+          
+          
           #upload file to container
-          file_path = f"{args.file_path}/{patient_id}_question_{question_id}.csv"
+          file_path = f"{args.file_path}/{patient_id}_question_{question_id}_{h}.csv"
+
+          assert os.path.isfile(file_path), f"File does not exist: {file_path}"
+     
           #f"/home/srini/time_series/loopqa/agent_data/yannan/insulin/patient_{patient_id}.csv"
           print("using file: ", file_path)
           try:
@@ -304,9 +323,7 @@ async def run(args):
           except Exception as e:
               print("error uploading file: ", e)
               continue
-
           assert file_id is not None , "File is not uploaded"
-          print("question number" , h+1)
           #print("patient id: ", patient_id)
     
           
@@ -318,7 +335,7 @@ async def run(args):
           answer_instructions = cur_data['answer_instruction']
           answer_type = cur_data['answer_type']
           example_answer = cur_data['example_answer']
-          input_txt = f"The Question is: {question} \n The answer instructions are: {answer_instructions} \n The answer type is: {answer_type} \n An example answer is: {example_answer}"
+          input_txt = prompt.format(question=question, answer_instruction=answer_instructions, answer_type=answer_type, example_answer=example_answer)
           input_class = WorkflowInput(input_as_text=input_txt)
           result, conversation_history = await run_workflow(args, input_class, container_id, question_id, patient_id, file_id)
           print("message traces: ", conversation_history)
@@ -327,6 +344,7 @@ async def run(args):
           dic['question'] = question
           dic['patient_id'] = patient_id
           dic['file_used'] = file_path
+          dic['input_txt'] = input_txt
           dic['answer_instructions'] = answer_instructions
           dic['answer_type'] = answer_type
           dic['example_answer'] = example_answer
@@ -349,7 +367,6 @@ async def run(args):
           #delete file from container
           delete_status = delete_file_from_container(file_id, container_id)
           print("delete status: ", delete_status)
-
         
     print("total cost: ", total_cost)
 
