@@ -192,7 +192,7 @@ if __name__ == '__main__':
         '-lcr', '60', '90',
         '-dcr', '50', '80',
         '--qa', 'ad',
-        '--data_path', 'Datasets/simulation_30days_faulty',
+        # '--data_path', 'Datasets/simulation_30days_normal_running',
         '-rsp', '0.0',
         '-cpwr', '60', '90',
         '-cst', '15:00', '17:00'
