@@ -191,7 +191,20 @@ def build_pattern_patient_record(
         "input_context": build_input_context(patient_data),
         "qa_pairs": merged_qa_pairs,
     }
-    return qa_record, qa_record_with_context
+
+    flattened_qa = [
+        {**qa, "patient_id": patient_id}
+        for qa in merged_qa_pairs
+    ]
+
+    context = build_input_context(patient_data)
+
+    flattened_qa_with_context = [
+        {**qa, "patient_id": patient_id, "input_context": context}
+        for qa in merged_qa_pairs
+    ]
+
+    return flattened_qa, qa_record_with_context
 
 
 def write_json_records(records: list[dict[str, Any]], output_path: Path) -> None:
@@ -237,7 +250,7 @@ def generate_pattern_recognition_qa(data_dir: str) -> None:
             patient_index=patient_index,
             simulation_seed=simulation_seed,
         )
-        qa_records.append(qa_record)
+        qa_records.extend(qa_record)
         qa_records_with_context.append(qa_record_with_context)
 
     write_json_records(qa_records, qa_output_dir / "QA_pattern.json")

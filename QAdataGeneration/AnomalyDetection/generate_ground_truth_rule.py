@@ -258,7 +258,7 @@ def compute_missing_signal_days_ad2(df, threshold=0.3):
     """
     ad_2: Were there any days when data quality was too poor to interpret trends?
     answer_generation_rule: Return all days where more than 30% of data is missing (IG is NaN).
-    answer_instruction: Return a list of day indices (1-based) where missingness exceeds 30% of the day‘s readings.
+    answer_instruction: Return a list of day indices (1-based) where missingness exceeds 30% of the day‘s readings. If no such days, return [].
     answer_type: list of int (e.g., days)
     metric: Accuracy
     """
@@ -274,7 +274,7 @@ def extract_missing_signal_intervals_ad3(df):
     """
     ad_3: Is there any missingness in the data?
     answer_generation_rule: Find all continuous time intervals of missing CGM data (IG is NaN).
-    answer_instruction: Return a list of time intervals where IG is NaN, each with a 'start' and 'end' index.
+    answer_instruction: Return a list of time intervals where IG is NaN, each with a 'start' and 'end' time in minute.
     answer_type: list of {"start": int, "end": int}
     metric: Affinity F-score
     """
@@ -486,7 +486,7 @@ def extract_last_hypoglycemia_duration_ad22(df):
     """
     ad_22: How long was my last episode of hypoglycemia?
     answer_generation_rule: Length of the most recent period of data points with a hypoglycemia label: hypoglycemia_end - hypoglycemia_start
-    answer_instruction: Return the duration, in number of time points, of the most recent episode where blood glucose was continuously below 70 mg/dL. Duration = end - start + 1. If no related events been detected, return 0.
+    answer_instruction: Return the duration, in minutes, of the most recent episode where blood glucose was continuously below 70 mg/dL. Duration = end - start + 1. If no related events been detected, return 0.
     answer_type: int
     metric: sMAPE
     """
@@ -579,8 +579,8 @@ def compute_avg_recovery_time_from_hyper_ad29(df):
     """
     ad_29: How long did it generally take to reach target range after a prolonged hyperglycemia episode? 
     answer_generation_rule: Average value of the time BG returns to TIR minus the time the hyperglycemia event start
-    answer_instruction: Examine each prolonged hyperglycemia episode (lasting at least 12 consecutive data points above 180 mg/dL). For each episode, calculate the duration from the start of hyperglycemia until glucose first returns to the target range (≤180 mg/dL). Return the average of these durations, reported in minutes, as the typical recovery time. If no related events been detected, return NaN.
-    answer_type: int or NaN
+    answer_instruction: Examine each prolonged hyperglycemia episode (lasting at least 12 consecutive data points above 180 mg/dL). For each episode, calculate the duration from the start of hyperglycemia until glucose first returns to the target range (≤180 mg/dL). Return the average of these durations, reported in minutes, as the typical recovery time. If no related events been detected, return 0.
+    answer_type: int
     metric: sMAPE
     """
     intervals = [i for i in get_intervals_from_bool_mask(df["BG"] > 180) if i["end"] - i["start"] >= 12*5]
@@ -593,25 +593,31 @@ def compute_avg_recovery_time_from_hyper_ad29(df):
             duration_points = recovery[0] - start_idx
             recovery_times.append(duration_points * 5)
 
-    return round(sum(recovery_times) / len(recovery_times), 2) if recovery_times else np.nan
+    return round(sum(recovery_times) / len(recovery_times), 2) if recovery_times else 0
 
 
 def compute_last_hypo_recovery_time_ad30(df):
     """
     ad_30: How long did I recover from the last hypoglycemic event?
     answer_generation_rule: Find the last hypoglycemia interval (BG < 70) and compute how long it took to recover.
-    answer_instruction: Return the number of time points between the start of the most recent hypoglycemia episode (BG < 70)
+    answer_instruction: Return the number of minutes between the start of the most recent hypoglycemia episode (BG < 70)
                         and the first reading ≥ 70 mg/dL afterward. If no related events been detected, return 0.
     answer_type: int
     metric: sMAPE
     """
     intervals = get_intervals_from_bool_mask(df["BG"] < 70)
     if not intervals:
-        return np.nan   
+        return 0
     start = intervals[-1]["start"]
     end = intervals[-1]["end"]
-    recovery = df.iloc[end + 1:].index[df["BG"].iloc[end + 1:] >= 70].tolist()
-    return recovery[0] - start if recovery else 0
+    if int(end/5) + 1 >= len(df):
+        if len(intervals) > 1:
+            start = intervals[-2]["start"]
+            end = intervals[-2]["end"]
+        else:
+            return 0
+    recovery = end - start + 5
+    return recovery
 
 def find_day_with_most_out_of_range_ad31(df):
     """
@@ -980,15 +986,15 @@ def detect_negative_bias_periods_ad57(df):
         intervals.append({"start": start*5, "end": prev*5})
     return intervals
 
-def detect_insulin_delivery_stop_ad58(df):
-    """
-    ad_58: Was there any point where it looked like insulin delivery may have stopped completely?
-    answer_generation_rule: Periods with faults_label == min_basal or unknown_stop.
-    answer_instruction: Return all time intervals where basal insulin delivery was either minimized or completely stopped, potentially indicating total delivery cessation.
-    answer_type: list of {"start": int, "end": int}
-    metric: Affinity F-score
-    """
-    return get_intervals_by_label(df, ["min_basal", "unknown_stop"])
+# def detect_insulin_delivery_stop_ad58(df):
+#     """
+#     ad_58: Was there any point where it looked like insulin delivery may have stopped completely?
+#     answer_generation_rule: Periods with faults_label == min_basal or unknown_stop.
+#     answer_instruction: Return all time intervals where basal insulin delivery was either minimized or completely stopped, potentially indicating total delivery cessation.
+#     answer_type: list of {"start": int, "end": int}
+#     metric: Affinity F-score
+#     """
+#     return get_intervals_by_label(df, ["min_basal", "unknown_stop"])
 
 def detect_insulin_delivery_issue_ad59(df):
     """

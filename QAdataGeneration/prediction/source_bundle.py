@@ -652,6 +652,16 @@ def write_prediction_scenario_outputs(
         faults_array=None,
     )
 
+    from pymgipsim.generate_plots import generate_plots_main
+    Path(f"{scenario_results_dir}/figures").mkdir(exist_ok=True)
+    generate_plots_main(results_folder_path=str(scenario_results_dir), args=prediction_args)
+
+    pd_args = prediction_args
+    for i in range(pd_args.number_of_subjects):
+        pd_args.plot_patient = i
+        print(f"Generating plots for Patient (index {i})")
+        figures = generate_plots_main(str(scenario_results_dir), pd_args)
+
     preprocess_data(
         simulation_path=str(scenario_results_dir / "simulation_settings.json"),
         bg_path=str(scenario_results_dir / "model_state_results.xlsx"),

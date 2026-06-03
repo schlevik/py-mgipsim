@@ -18,7 +18,7 @@ from pymgipsim.faultsGeneration import generate_faults
 from QAdataGeneration.AnomalyDetection.build_anomaly_dataset import generate_anomaly_detection_qa
 from QAdataGeneration.pattern.build_pattern_dataset import generate_pattern_recognition_qa
 from QAdataGeneration.prediction.generate_prediction_qa_pairs import generate_prediction_qa
-from QAdataGeneration.prediction.source_bundle import prepare_prediction_source_bundle
+from QAdataGeneration.prediction.source_bundle import prepare_prediction_source_bundle, validate_prediction_source_bundle
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
@@ -148,32 +148,53 @@ def main(argv=None):
 
     if 'ad' in requested_qa:
         print("Generating anomaly detection question answering dataset...")
-        generate_anomaly_detection_qa(args.data_path, args.ad_ids)
+        generate_anomaly_detection_qa(args.data_path, args.ad_ids, args.number_of_subjects)
     if 'pm' in requested_qa:
         print("Generating pattern recognition question answering dataset...")
         generate_pattern_recognition_qa(args.data_path)
     if 'pd' in requested_qa:
         # if fault is there we dont want to include it in the prediction source bundle and therefore generate a new bundle without faults
-        print("Building prediction source bundle...")
-        _, patient_count = prepare_prediction_source_bundle(
-            results_folder_path=results_folder_path,
-            base_args=args,
-        )
+        try:
+            source_root = Path(args.data_path) / "PredictionSource"
+            validate_prediction_source_bundle(source_root)
+        except FileNotFoundError as e:
+            print(e)
+            print("Building prediction source bundle...")
+            _, patient_count = prepare_prediction_source_bundle(
+                results_folder_path=results_folder_path,
+                base_args=args,
+            )
         print("Generating prediction question answering dataset...")
-        generate_prediction_qa(args.data_path, patient_count=patient_count)
+        generate_prediction_qa(args.data_path, patient_count=args.number_of_subjects)
+
+    # for check simulation validation
+    # Generate plots for all patients
+    all_figures = []
+    for i in range(args.number_of_subjects):
+        args.plot_patient = i
+        print(f"Generating plots for Patient (index {i})")
+        figures = generate_plots_main(results_folder_path, args)
+        all_figures.append(figures)
 
  
 if __name__ == '__main__':
     test_arguments = [
         '-pat', '0',
         '-rs', '146',
-        '-d', '7',
+        '-d', '30',
         '-ns', '20',
         '-ctrl', 'OpenAPS',
-        '-ft', 'repeated_episode',
-        '--data_path', 'SimulationResults/Simulation_ad_testing_30day_withNaNInstruction',
+        # '-rfi', '0.1',
+        # '-ft', 'missing_signal',
+        '-ff', 'pymgipsim/faultsGeneration/faults_specification.csv',
         '-st', '5',
+        '-bcr', '50', '80',
+        '-lcr', '60', '90',
+        '-dcr', '50', '80',
         '--qa', 'ad',
-        '--ad_ids', '1', '5', '9', '46'
+        # '--data_path', 'Datasets/simulation_30days_normal_running',
+        '-rsp', '0.0',
+        '-cpwr', '60', '90',
+        '-cst', '15:00', '17:00'
     ]
     main()

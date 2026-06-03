@@ -277,7 +277,7 @@ def collect_question_metadata(funcs: Dict[str, Any], meta_table) -> Dict[str, Di
             "metric": meta_t['metric'].iloc[0],                        # metric,
             "answer_type": answer_type,
             # "answer_instruction": answer_instruction,
-            "answer_instruction": meta_t['answer_instruction'].iloc[0],
+            "answer_instruction": f"{meta_t['answer_instruction'].iloc[0]} {answer_instruction}",
             "cognitive_level": meta_t['cognitive_level'].iloc[0],
             "cognitive_atomic": meta_t['cognitive_atomic'].iloc[0],
             "question_prototype": meta_t['question_prototype'].iloc[0]
@@ -379,7 +379,7 @@ def write_jsonl(records: List[Dict[str, Any]], path: str) -> None:
 
 # ------------------------------ CLI -----------------------------------------
 
-def generate_anomaly_detection_qa(data_dir, qa_ids=None):
+def generate_anomaly_detection_qa(data_dir, qa_ids=None, num_patients=20):
     # parser = argparse.ArgumentParser(description="Build anomaly-detection QA dataset.")
     # parser.add_argument("--base_dir", type=str, default="SimulationResults", help="Root folder containing Patient_* subfolders.")
     # parser.add_argument("--out_inputs_dir", type=str, default="QAData", help="Folder to optionally store per-patient input snapshots (JSONL).")
@@ -389,7 +389,6 @@ def generate_anomaly_detection_qa(data_dir, qa_ids=None):
     # parser.add_argument("--dump_inputs", action="store_true", help="If set, also dump per-patient input_context JSONL under out_inputs_dir.")
 
     # args = parser.parse_args()
-    num_patients = 20
     qa_json = "QA_ad.json"    # Path to write the QA json (flat list).
     out_jsonl = "QA_ad_with_context.jsonl"  # Final per-patient JSONL with input_context + qa_pairs.
     dump_inputs = False   # If set, also dump per-patient input_context JSONL under out_inputs_dir.

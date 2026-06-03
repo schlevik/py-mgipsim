@@ -83,7 +83,7 @@ QUESTION_METADATA: dict[int, dict[str, str]] = {
     5: {
         "function_name": "check_hypoglycemia",
         "question_id": "pd_5",
-        "question_text": "Will my running exercise cause me to become hypoglycemic in the next 90 minutes if i start training now where I will run for 30 minutes?",
+        "question_text": "Will my running exercise cause me to become hypoglycemic in the next 90 minutes if i start training now where I will run for about 30 minutes?",
         "answer_generation_rule": "Take the current blood glucose values and assume the running exercise event immediately starts and predict if the blood glucose values will be lower than 70mg/dL in the next 90 minutes.If you think the blood glucose values will be lower than 70mg/dL, answer 'Yes', otherwise answer 'No'",
         "answer_instruction": "Take the current blood glucose values and assume the running exercise event immediately starts and predict if the blood glucose values will be lower than 70mg/dL in the next 90 minutes.If you think the blood glucose values will be lower than 70mg/dL, answer 'Yes', otherwise answer 'No'",
         "answer_type": "string",
@@ -425,6 +425,10 @@ def build_input_context(
 
 
 def build_record(patient_index: int, input_context: dict, qa: dict):
+    if qa['answer_type'] == 'float':
+        qa['example_answer'] =  round(qa['example_answer'], 2)
+        qa['answer'] = round(qa['answer'], 2)
+
     return {
         "patient_id": patient_id(patient_index),
         "input_context": round_context_numbers(input_context),
@@ -438,7 +442,7 @@ def find_recent_exercise_index(exercise_events, exercise_type: str, window_ancho
     for event in exercise_events:
         if event["exercise_type"] != exercise_type:
             continue
-        if anchor_time - 120 <= event["time"] <= anchor_time:
+        if anchor_time - 180 <= event["time"] <= anchor_time + 180:
             matched_index = int(event["time"] // 5) + (1 if add_one else 0)
     if matched_index is None:
         raise ValueError(f"No {exercise_type} event found near index {window_anchor_idx}")
@@ -1103,7 +1107,6 @@ def generate_prediction_qa(data_dir: str, patient_count: int = DEFAULT_PATIENT_C
     if not output_root.is_absolute():
         output_root = (project_root / output_root).resolve()
     source_root = output_root / "PredictionSource"
-    validate_prediction_source_bundle(source_root)
     available_patients = available_prediction_patients(source_root)
     if patient_count > available_patients:
         raise ValueError(
