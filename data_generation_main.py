@@ -169,12 +169,12 @@ def main(argv=None):
 
     # for check simulation validation
     # Generate plots for all patients
-    # all_figures = []
-    # for i in range(args.number_of_subjects):
-    #     args.plot_patient = i
-    #     print(f"Generating plots for Patient (index {i})")
-    #     figures = generate_plots_main(results_folder_path, args)
-    #     all_figures.append(figures)
+    all_figures = []
+    for i in range(args.number_of_subjects):
+        args.plot_patient = i
+        print(f"Generating plots for Patient (index {i})")
+        figures = generate_plots_main(results_folder_path, args)
+        all_figures.append(figures)
 
  
 if __name__ == '__main__':
@@ -197,4 +197,4 @@ if __name__ == '__main__':
         '-cpwr', '60', '90',
         '-cst', '15:00', '17:00'
     ]
-    main(test_arguments)
+    main()
