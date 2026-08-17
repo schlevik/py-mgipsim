@@ -2,7 +2,7 @@
 
 Official repository for **HealthLoopQA** *(Paper link coming soon)*.
 
-This repository extends [py-mgipsim](https://github.com/illinoistech-itm/py-mgipsim), a Type 1 Diabetes (T1D) closed-loop simulation testbed, by introducing fault injection, randomized simulation scenarios, automated Question-Answering (QA) dataset generation, LLM inference pipelines, and benchmark evaluation.
+This repository extends [py-mgipsim](https://github.com/illinoistech-itm/py-mgipsim), a Type 1 Diabetes (T1D) closed-loop simulation testbed, by introducing fault injection, randomized simulation scenarios, automated Question-Answering (QA) dataset generation, LLM inference pipelines, and benchmark evaluation. Full datasets and evaluation results are accessible through the link: [HealthLoopQA_datasets](https://drive.google.com/drive/folders/1uUrW1712-PBaMfcBEpmQoAL03VXZqIOE?usp=sharing)
 
 <p align="center">
   <img width="800" alt="HealthLoopQA Framework Overview" src="https://github.com/user-attachments/assets/beee5607-cd2f-49d9-b95b-833e0db2ca23" />
