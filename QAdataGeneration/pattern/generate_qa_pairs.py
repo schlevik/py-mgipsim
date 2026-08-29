@@ -658,13 +658,13 @@ def generate_questions_and_answers(patient_data):
     avg_cv_weekends = _safe_mean(weekend_cvs)
 
     if avg_cv_weekdays is None or avg_cv_weekends is None:
-        higher_weekdays_weekends = "equal in both"
+        stable_weekdays_weekends = "equal in both"
     elif avg_cv_weekdays > avg_cv_weekends:
-        higher_weekdays_weekends = "weekdays"
+        stable_weekdays_weekends = "weekend"
     elif avg_cv_weekdays < avg_cv_weekends:
-        higher_weekdays_weekends = "weekend"
+        stable_weekdays_weekends = "weekdays"
     else:
-        higher_weekdays_weekends = "equal in both"
+        stable_weekdays_weekends = "equal in both"
 
     questions_and_answers.append({
         "question_id": "pm_15",
@@ -729,7 +729,7 @@ def generate_questions_and_answers(patient_data):
     questions_and_answers.append({
         "question_id": "pm_19",
         "question_text": "Are my glucose trends more stable on weekdays or weekend for the first week?",
-        "answer": higher_weekdays_weekends,
+        "answer": stable_weekdays_weekends,
         "answer_generation_rule": "Compare the glucose coefficient of variation on weekdays versus weekends.",
         "answer_instruction": "Compare the glucose coefficient of variation on weekdays versus weekends. Select one of the following options based on which period has lower coefficient: 'weekdays', 'weekend', or 'equal in both'.",
         "answer_type": "categorical",
